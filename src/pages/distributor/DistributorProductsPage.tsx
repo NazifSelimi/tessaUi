@@ -1,10 +1,17 @@
-'use client';
+/**
+ * Distributor Products Page
+ * 
+ * Shows product catalog with both retail and stylist pricing.
+ * Distributors can see margins and share pricing info with stylists.
+ * 
+ * TODO: Connect to API for real product data
+ */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Table, Button, Tag, Input, Space, Spin, Card } from 'antd';
 import { ArrowLeftOutlined, SearchOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 import { getProducts } from '@/api/client';
 import type { Product } from '@/types';
 
@@ -12,7 +19,7 @@ const { Title, Text } = Typography;
 
 export default function DistributorProductsPage() {
   const navigate = useNavigate();
-  const { currentRole } = useApp();
+  const { currentRole } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -20,9 +27,15 @@ export default function DistributorProductsPage() {
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
-      const data = await getProducts();
-      setProducts(data);
-      setLoading(false);
+      try {
+        // TODO: Replace with actual API call
+        const data = await getProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error('Failed to load products:', error);
+      } finally {
+        setLoading(false);
+      }
     }
     loadProducts();
   }, []);

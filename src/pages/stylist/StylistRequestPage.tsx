@@ -1,9 +1,16 @@
-'use client';
+/**
+ * Stylist Request Page
+ * 
+ * Allows users to apply to become a stylist.
+ * Shows application form, status tracking, and benefits.
+ * 
+ * TODO: Connect to API for actual stylist request submission
+ */
 
 import { useState } from 'react';
 import { Typography, Card, Form, Input, Button, Result, Steps, Alert, message } from 'antd';
 import { ScissorOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 import { createStylistRequest } from '@/api/client';
 import type { StylistRequestStatus } from '@/types';
 
@@ -11,29 +18,39 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 // Simulated request status for demo
+// TODO: Fetch actual status from API based on user
 const mockRequestStatus: StylistRequestStatus | null = null;
 
 export default function StylistRequestPage() {
-  const { user, currentRole } = useApp();
+  const { user, currentRole, isStylist } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [requestStatus] = useState<StylistRequestStatus | null>(mockRequestStatus);
 
-  const handleSubmit = async (values: Record<string, string>) => {
+  const handleSubmit = async (values: {
+    name: string;
+    email: string;
+    salonName?: string;
+    salonAddress?: string;
+    experience?: string;
+    referralCode?: string;
+    about?: string;
+  }) => {
     setLoading(true);
     try {
+      // TODO: Replace with actual API call
       await createStylistRequest({
         userId: user?.id || 'guest',
         userName: values.name,
         userEmail: values.email,
-        salonName: values.salonName,
-        salonAddress: values.salonAddress,
-        experience: values.experience,
+        salonName: values.salonName || '',
+        salonAddress: values.salonAddress || '',
+        experience: values.experience || '',
         referralCode: values.referralCode,
       });
       setSubmitted(true);
       message.success('Application submitted successfully!');
-    } catch {
+    } catch (error) {
       message.error('Failed to submit application');
     } finally {
       setLoading(false);
@@ -41,7 +58,7 @@ export default function StylistRequestPage() {
   };
 
   // Already a stylist
-  if (currentRole === 'stylist') {
+  if (isStylist || currentRole === 'stylist') {
     return (
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
         <Card>
@@ -134,7 +151,7 @@ export default function StylistRequestPage() {
           <Form.Item
             name="name"
             label="Full Name"
-            rules={[{ required: true }]}
+            rules={[{ required: true, message: 'Please enter your name' }]}
             initialValue={user?.name}
           >
             <Input placeholder="Your full name" />
@@ -143,7 +160,10 @@ export default function StylistRequestPage() {
           <Form.Item
             name="email"
             label="Email"
-            rules={[{ required: true }, { type: 'email' }]}
+            rules={[
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email' },
+            ]}
             initialValue={user?.email}
           >
             <Input placeholder="your@email.com" />

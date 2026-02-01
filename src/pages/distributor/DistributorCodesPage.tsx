@@ -1,12 +1,18 @@
-'use client';
+/**
+ * Distributor Codes Page
+ * 
+ * Allows distributors to manage their stylist referral codes.
+ * 
+ * TODO: Connect to API for real code management
+ */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Typography, Card, Table, Button, Tag, Space, message, Modal, Input, Spin 
+  Typography, Card, Table, Button, Tag, Space, message, Spin 
 } from 'antd';
 import { PlusOutlined, CopyOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 import { getStylistCodes, createStylistCode } from '@/api/client';
 import type { StylistCode } from '@/types';
 
@@ -14,7 +20,7 @@ const { Title, Text } = Typography;
 
 export default function DistributorCodesPage() {
   const navigate = useNavigate();
-  const { currentRole, user } = useApp();
+  const { currentRole, user } = useAuth();
   const [codes, setCodes] = useState<StylistCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -22,9 +28,15 @@ export default function DistributorCodesPage() {
   useEffect(() => {
     async function loadCodes() {
       setLoading(true);
-      const data = await getStylistCodes(user?.id);
-      setCodes(data);
-      setLoading(false);
+      try {
+        // TODO: Replace with actual API call
+        const data = await getStylistCodes(user?.id);
+        setCodes(data);
+      } catch (error) {
+        message.error('Failed to load codes');
+      } finally {
+        setLoading(false);
+      }
     }
     loadCodes();
   }, [user?.id]);
@@ -32,10 +44,11 @@ export default function DistributorCodesPage() {
   const handleGenerateCode = async () => {
     setGenerating(true);
     try {
+      // TODO: Replace with actual API call
       const newCode = await createStylistCode(user?.id || 'distributor');
       setCodes(prev => [newCode, ...prev]);
       message.success(`New code generated: ${newCode.code}`);
-    } catch {
+    } catch (error) {
       message.error('Failed to generate code');
     } finally {
       setGenerating(false);

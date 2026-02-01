@@ -1,4 +1,11 @@
-'use client';
+/**
+ * Order Detail Page
+ * 
+ * Shows detailed view of a specific order including items,
+ * shipping address, payment info, and order status tracking.
+ * 
+ * TODO: Connect to API for real order data
+ */
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -31,9 +38,15 @@ export default function OrderDetailPage() {
     async function loadOrder() {
       if (!id) return;
       setLoading(true);
-      const data = await getOrderById(id);
-      setOrder(data || null);
-      setLoading(false);
+      try {
+        // TODO: Replace with actual API call
+        const data = await getOrderById(id);
+        setOrder(data || null);
+      } catch (error) {
+        console.error('Failed to load order:', error);
+      } finally {
+        setLoading(false);
+      }
     }
     loadOrder();
   }, [id]);

@@ -1,12 +1,21 @@
+/**
+ * Distributor Portal Page
+ * 
+ * Dashboard for distributors to manage their stylist network.
+ * Shows stats, quick actions, and recent activity.
+ * 
+ * TODO: Connect to API for real statistics
+ */
+
 import { Link } from 'react-router-dom';
 import { Typography, Card, Row, Col, Statistic, Button, Space } from 'antd';
 import { TeamOutlined, TagOutlined, ShoppingOutlined, RiseOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 
 const { Title, Text } = Typography;
 
 export default function DistributorPortalPage() {
-  const { currentRole } = useApp();
+  const { currentRole } = useAuth();
 
   if (currentRole !== 'distributor' && currentRole !== 'admin') {
     return (
@@ -26,6 +35,8 @@ export default function DistributorPortalPage() {
         </Text>
       </div>
 
+      {/* Statistics Overview */}
+      {/* TODO: Fetch real stats from API */}
       <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
         <Col xs={12} md={6}>
           <Card>
@@ -68,6 +79,7 @@ export default function DistributorPortalPage() {
         </Col>
       </Row>
 
+      {/* Quick Action Cards */}
       <Row gutter={[24, 24]}>
         <Col xs={24} md={12}>
           <Card
@@ -108,6 +120,8 @@ export default function DistributorPortalPage() {
         </Col>
       </Row>
 
+      {/* Recent Activity */}
+      {/* TODO: Fetch recent activity from API */}
       <Card title="Recent Activity" style={{ marginTop: 24 }}>
         <div style={{ padding: '20px 0', textAlign: 'center' }}>
           <Text type="secondary">Activity feed coming soon...</Text>

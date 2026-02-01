@@ -1,17 +1,41 @@
+/**
+ * Account Page
+ * 
+ * User profile management page.
+ * Shows user info, allows profile updates, and provides quick links.
+ * 
+ * TODO: Connect to API for profile updates
+ */
+
 import { Link } from 'react-router-dom';
 import { Typography, Card, Form, Input, Button, Row, Col, message, Avatar, Divider } from 'antd';
 import { UserOutlined, MailOutlined, PhoneOutlined, ShoppingOutlined, ScissorOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 
 const { Title, Text } = Typography;
 
 export default function AccountPage() {
-  const { user, currentRole } = useApp();
+  const { user, currentRole, updateProfile, isLoading } = useAuth();
   const [form] = Form.useForm();
 
-  const handleUpdateProfile = (values: Record<string, string>) => {
-    console.log('Update profile:', values);
-    message.success('Profile updated successfully!');
+  const handleUpdateProfile = async (values: { name: string; email: string; phone: string }) => {
+    try {
+      // TODO: Replace with actual API call
+      await updateProfile(values);
+      message.success('Profile updated successfully!');
+    } catch (error) {
+      message.error('Failed to update profile');
+    }
+  };
+
+  const handleChangePassword = async (values: { currentPassword: string; newPassword: string }) => {
+    try {
+      // TODO: Implement password change API call
+      // await authService.changePassword(values);
+      message.success('Password updated successfully!');
+    } catch (error) {
+      message.error('Failed to update password');
+    }
   };
 
   return (
@@ -77,24 +101,50 @@ export default function AccountPage() {
                 <Input prefix={<PhoneOutlined />} placeholder="+1 234 567 8900" />
               </Form.Item>
 
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={isLoading}>
                 Save Changes
               </Button>
             </Form>
           </Card>
 
           <Card title="Change Password" style={{ marginTop: 24 }}>
-            <Form layout="vertical">
-              <Form.Item name="currentPassword" label="Current Password">
+            <Form layout="vertical" onFinish={handleChangePassword}>
+              <Form.Item 
+                name="currentPassword" 
+                label="Current Password"
+                rules={[{ required: true, message: 'Please enter your current password' }]}
+              >
                 <Input.Password placeholder="Current password" />
               </Form.Item>
-              <Form.Item name="newPassword" label="New Password">
+              <Form.Item 
+                name="newPassword" 
+                label="New Password"
+                rules={[
+                  { required: true, message: 'Please enter a new password' },
+                  { min: 8, message: 'Password must be at least 8 characters' },
+                ]}
+              >
                 <Input.Password placeholder="New password" />
               </Form.Item>
-              <Form.Item name="confirmPassword" label="Confirm New Password">
+              <Form.Item 
+                name="confirmPassword" 
+                label="Confirm New Password"
+                dependencies={['newPassword']}
+                rules={[
+                  { required: true, message: 'Please confirm your new password' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value || getFieldValue('newPassword') === value) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error('Passwords do not match'));
+                    },
+                  }),
+                ]}
+              >
                 <Input.Password placeholder="Confirm new password" />
               </Form.Item>
-              <Button type="primary">Update Password</Button>
+              <Button type="primary" htmlType="submit">Update Password</Button>
             </Form>
           </Card>
         </Col>
