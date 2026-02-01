@@ -1,19 +1,69 @@
-'use client';
+/**
+ * Cart Page Component
+ * Displays cart items with quantity controls and checkout summary
+ */
 
-import { useNavigate } from 'react-router-dom';
-import { 
-  Typography, Table, Button, InputNumber, Space, Empty, Card, Divider 
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Typography,
+  Button,
+  Card,
+  Empty,
+  InputNumber,
+  Space,
+  Divider,
+  Row,
+  Col,
+  Image,
+  Popconfirm,
+  message,
+  Table,
 } from 'antd';
-import { DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { useApp } from '@/store/AppContext';
-import type { CartItem } from '@/types';
+import {
+  DeleteOutlined,
+  ShoppingOutlined,
+  ArrowLeftOutlined,
+  SafetyCertificateOutlined,
+  TruckOutlined,
+} from '@ant-design/icons';
+import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import type { CartItem } from '../types';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
-export default function CartPage() {
+const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, updateCartQuantity, removeFromCart, getCartTotal, getPrice } = useApp();
-  const { subtotal, itemCount } = getCartTotal();
+  const { items, updateQuantity, removeItem, getCartTotal, clearCart } = useCart();
+  const { user } = useAuth();
+
+  const handleQuantityChange = (productId: string, sizeId: string, quantity: number | null) => {
+    if (quantity && quantity > 0) {
+      updateQuantity(productId, sizeId, quantity);
+    }
+  };
+
+  const handleRemoveItem = (productId: string, sizeId: string) => {
+    removeItem(productId, sizeId);
+    message.success('Item removed from cart');
+  };
+
+  const handleClearCart = () => {
+    clearCart();
+    message.success('Cart cleared');
+  };
+
+  const handleCheckout = () => {
+    if (!user) {
+      message.info('Please log in to proceed with checkout');
+      navigate('/login', { state: { from: '/checkout' } });
+      return;
+    }
+    navigate('/checkout');
+  };
+
+  const totals = getCartTotal();
 
   const columns = [
     {
@@ -22,15 +72,27 @@ export default function CartPage() {
       key: 'product',
       render: (_: unknown, record: CartItem) => (
         <Space>
-          <img
-            src={record.product.images[0] || "/placeholder.svg"}
+          <Image
+            src={record.product.images[0] || '/placeholder.svg'}
             alt={record.product.name}
-            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }}
+            width={80}
+            height={80}
+            style={{ objectFit: 'cover', borderRadius: 8 }}
+            preview={false}
+            fallback="/placeholder.svg"
           />
           <div>
-            <Text strong>{record.product.name}</Text>
+            <Link to={`/product/${record.product.id}`}>
+              <Text strong style={{ color: '#1a1a2e' }}>{record.product.name}</Text>
+            </Link>
             <br />
-            <Text type="secondary">{record.product.brand} • {record.size.size}</Text>
+            <Text type="secondary">{record.product.brand}</Text>
+            {record.size && (
+              <>
+                <br />
+                <Text type="secondary" style={{ fontSize: 12 }}>{record.size.size}</Text>
+              </>
+            )}
           </div>
         </Space>
       ),
@@ -39,20 +101,22 @@ export default function CartPage() {
       title: 'Price',
       key: 'price',
       width: 120,
-      render: (_: unknown, record: CartItem) => (
-        <Text>${getPrice(record.size).toFixed(2)}</Text>
-      ),
+      render: (_: unknown, record: CartItem) => {
+        const price = record.size?.retailPrice || record.product.retailPrice;
+        return <Text>${price.toFixed(2)}</Text>;
+      },
     },
     {
       title: 'Quantity',
       key: 'quantity',
-      width: 120,
+      width: 130,
       render: (_: unknown, record: CartItem) => (
         <InputNumber
           min={1}
-          max={record.size.stock}
+          max={record.size?.stock || record.product.stock || 99}
           value={record.quantity}
-          onChange={(val) => updateCartQuantity(record.productId, record.sizeId, val || 1)}
+          onChange={(val) => handleQuantityChange(record.product.id, record.size?.id || '', val)}
+          style={{ width: 80 }}
         />
       ),
     },
@@ -60,85 +124,173 @@ export default function CartPage() {
       title: 'Total',
       key: 'total',
       width: 120,
-      render: (_: unknown, record: CartItem) => (
-        <Text strong>${(getPrice(record.size) * record.quantity).toFixed(2)}</Text>
-      ),
+      render: (_: unknown, record: CartItem) => {
+        const price = record.size?.retailPrice || record.product.retailPrice;
+        return <Text strong>${(price * record.quantity).toFixed(2)}</Text>;
+      },
     },
     {
       title: '',
       key: 'actions',
       width: 60,
       render: (_: unknown, record: CartItem) => (
-        <Button
-          type="text"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => removeFromCart(record.productId, record.sizeId)}
-        />
+        <Popconfirm
+          title="Remove item"
+          description="Are you sure you want to remove this item?"
+          onConfirm={() => handleRemoveItem(record.product.id, record.size?.id || '')}
+          okText="Yes"
+          cancelText="No"
+        >
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            aria-label="Remove item"
+          />
+        </Popconfirm>
       ),
     },
   ];
 
-  if (cart.length === 0) {
+  if (items.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: 100 }}>
-        <Empty description="Your cart is empty" />
-        <Button type="primary" onClick={() => navigate('/')} style={{ marginTop: 16 }}>
-          Continue Shopping
-        </Button>
+      <div style={{ padding: '48px 24px', maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+        <Empty
+          image={<ShoppingOutlined style={{ fontSize: 80, color: '#d9d9d9' }} />}
+          description={
+            <Space direction="vertical" size={8}>
+              <Title level={4} style={{ margin: 0 }}>Your cart is empty</Title>
+              <Paragraph type="secondary">
+                Looks like you haven't added any items to your cart yet.
+                Browse our collection to find something you'll love.
+              </Paragraph>
+            </Space>
+          }
+        >
+          <Link to="/products">
+            <Button type="primary" size="large" icon={<ShoppingOutlined />}>
+              Start Shopping
+            </Button>
+          </Link>
+        </Empty>
       </div>
     );
   }
 
   return (
-    <div>
-      <Button 
-        type="text" 
-        icon={<ArrowLeftOutlined />} 
-        onClick={() => navigate('/')}
-        style={{ marginBottom: 16 }}
-      >
-        Continue Shopping
-      </Button>
-
-      <Title level={2}>Shopping Cart</Title>
-      <Text type="secondary">{itemCount} items in your cart</Text>
-
-      <div style={{ marginTop: 24, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 300 }}>
-          <Table
-            dataSource={cart}
-            columns={columns}
-            rowKey={(record) => `${record.productId}-${record.sizeId}`}
-            pagination={false}
-          />
+    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <Link to="/products" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <ArrowLeftOutlined />
+          <span>Continue Shopping</span>
+        </Link>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={2} style={{ margin: 0 }}>Shopping Cart</Title>
+          <Text type="secondary">{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
         </div>
-
-        <Card style={{ width: 320, height: 'fit-content' }}>
-          <Title level={4}>Order Summary</Title>
-          <Divider />
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text>Subtotal</Text>
-            <Text>${subtotal.toFixed(2)}</Text>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-            <Text>Shipping</Text>
-            <Text type="secondary">Calculated at checkout</Text>
-          </div>
-          
-          <Divider />
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Text strong>Estimated Total</Text>
-            <Text strong style={{ fontSize: 18 }}>${subtotal.toFixed(2)}</Text>
-          </div>
-
-          <Button type="primary" size="large" block onClick={() => navigate('/checkout')}>
-            Proceed to Checkout
-          </Button>
-        </Card>
       </div>
+
+      <Row gutter={[24, 24]}>
+        {/* Cart Items Table */}
+        <Col xs={24} lg={16}>
+          <Card>
+            <Table
+              dataSource={items}
+              columns={columns}
+              rowKey={(record) => `${record.product.id}-${record.size?.id || 'default'}`}
+              pagination={false}
+            />
+            
+            {/* Clear Cart */}
+            <Divider />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Popconfirm
+                title="Clear cart"
+                description="Are you sure you want to remove all items?"
+                onConfirm={handleClearCart}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Button type="text" danger>
+                  Clear Cart
+                </Button>
+              </Popconfirm>
+            </div>
+          </Card>
+        </Col>
+
+        {/* Order Summary */}
+        <Col xs={24} lg={8}>
+          <Card title="Order Summary" style={{ position: 'sticky', top: 24 }}>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text type="secondary">Subtotal ({totals.itemCount} items)</Text>
+                <Text>${totals.subtotal.toFixed(2)}</Text>
+              </div>
+
+              {totals.savings > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text type="secondary">Savings</Text>
+                  <Text style={{ color: '#52c41a' }}>-${totals.savings.toFixed(2)}</Text>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text type="secondary">Shipping</Text>
+                <Text>{totals.subtotal >= 50 ? 'FREE' : '$5.99'}</Text>
+              </div>
+
+              <Divider style={{ margin: '8px 0' }} />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text strong style={{ fontSize: 16 }}>Estimated Total</Text>
+                <Text strong style={{ fontSize: 18, color: '#1a1a2e' }}>
+                  ${(totals.subtotal + (totals.subtotal >= 50 ? 0 : 5.99)).toFixed(2)}
+                </Text>
+              </div>
+
+              {totals.subtotal < 50 && (
+                <div style={{ 
+                  background: '#fff7e6', 
+                  padding: 12, 
+                  borderRadius: 8,
+                  border: '1px solid #ffd591'
+                }}>
+                  <Text style={{ color: '#d48806', fontSize: 13 }}>
+                    Add ${(50 - totals.subtotal).toFixed(2)} more for FREE shipping!
+                  </Text>
+                </div>
+              )}
+
+              <Button
+                type="primary"
+                size="large"
+                block
+                onClick={handleCheckout}
+                style={{ marginTop: 8 }}
+              >
+                Proceed to Checkout
+              </Button>
+
+              {/* Trust Badges */}
+              <Divider style={{ margin: '16px 0 8px' }} />
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SafetyCertificateOutlined style={{ color: '#52c41a' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Secure SSL Checkout</Text>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <TruckOutlined style={{ color: '#1890ff' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Free shipping on orders $50+</Text>
+                </div>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
-}
+};
+
+export default CartPage;
