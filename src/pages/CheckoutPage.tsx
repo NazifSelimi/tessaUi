@@ -1,13 +1,24 @@
-'use client';
+/**
+ * Checkout Page
+ * 
+ * Multi-step checkout process:
+ * 1. Shipping information
+ * 2. Payment method selection
+ * 3. Order review and confirmation
+ */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   Typography, Form, Input, Button, Card, Steps, Radio, Space, 
-  Divider, message, Alert, Row, Col 
+  Divider, message, Alert, Row, Col, Result,
 } from 'antd';
-import { useApp } from '@/store/AppContext';
-import { createOrder, validateCoupon } from '@/api/client';
+import { 
+  ArrowLeftOutlined, CheckCircleOutlined, CreditCardOutlined,
+  WalletOutlined, LockOutlined,
+} from '@ant-design/icons';
+import { useCart, useAuth } from '@/contexts';
+import { createOrder, validateCoupon } from '@/api/services';
 import type { Coupon } from '@/types';
 
 const { Title, Text } = Typography;
@@ -16,15 +27,18 @@ const { TextArea } = Input;
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const { cart, getCartTotal, getPrice, currentRole, clearCart } = useApp();
-  const { subtotal } = getCartTotal();
+  const { items, subtotal, clearCart, getItemPrice } = useCart();
+  const { currentRole } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [loading, setLoading] = useState(false);
+  const [orderComplete, setOrderComplete] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
+  // Calculate totals
   const shipping = subtotal >= 50 ? 0 : 5.99;
   const discount = appliedCoupon 
     ? appliedCoupon.type === 'percentage' 
@@ -33,22 +47,25 @@ export default function CheckoutPage() {
     : 0;
   const total = subtotal + shipping - discount;
 
+  // Apply coupon
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
+    
     const coupon = await validateCoupon(couponCode, currentRole, subtotal);
     if (coupon) {
       setAppliedCoupon(coupon);
-      message.success('Coupon applied!');
+      message.success(`Coupon applied: ${coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value}`} off`);
     } else {
-      message.error('Invalid or expired coupon');
+      message.error('Invalid or expired coupon code');
     }
   };
 
+  // Submit order
   const handleSubmit = async (values: Record<string, string>) => {
     setLoading(true);
     try {
       const order = await createOrder({
-        items: cart,
+        items,
         shippingAddress: {
           fullName: values.fullName,
           phone: values.phone,
@@ -60,23 +77,41 @@ export default function CheckoutPage() {
         paymentMethod,
         customMessage: values.customMessage,
         couponCode: appliedCoupon?.code,
-        userRole: currentRole,
-      });
+      }, currentRole);
       
       clearCart();
+      setOrderId(order.id);
+      setOrderComplete(true);
       message.success('Order placed successfully!');
-      navigate(`/account/orders/${order.id}`);
-    } catch {
-      message.error('Failed to place order');
+    } catch (error) {
+      message.error('Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (cart.length === 0) {
+  // Validate step before proceeding
+  const validateStep = async (step: number) => {
+    if (step === 0) {
+      try {
+        await form.validateFields(['fullName', 'phone', 'address', 'city', 'state', 'zipCode']);
+        setCurrentStep(1);
+      } catch {
+        // Validation failed
+      }
+    } else if (step === 1) {
+      setCurrentStep(2);
+    }
+  };
+
+  // Empty cart state
+  if (items.length === 0 && !orderComplete) {
     return (
       <div style={{ textAlign: 'center', padding: 100 }}>
         <Title level={4}>Your cart is empty</Title>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+          Add some products to checkout
+        </Text>
         <Button type="primary" onClick={() => navigate('/')}>
           Continue Shopping
         </Button>
@@ -84,10 +119,49 @@ export default function CheckoutPage() {
     );
   }
 
+  // Order complete state
+  if (orderComplete) {
+    return (
+      <div style={{ maxWidth: 600, margin: '40px auto' }}>
+        <Result
+          status="success"
+          icon={<CheckCircleOutlined style={{ color: '#10b981' }} />}
+          title="Order Placed Successfully!"
+          subTitle={
+            <Space direction="vertical" size={4}>
+              <Text>Order ID: <Text strong>{orderId}</Text></Text>
+              <Text type="secondary">
+                We'll send you an email confirmation shortly.
+              </Text>
+            </Space>
+          }
+          extra={[
+            <Button type="primary" key="orders" onClick={() => navigate('/account/orders')}>
+              View My Orders
+            </Button>,
+            <Button key="shop" onClick={() => navigate('/')}>
+              Continue Shopping
+            </Button>,
+          ]}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <Button 
+        type="text" 
+        icon={<ArrowLeftOutlined />} 
+        onClick={() => navigate('/cart')}
+        style={{ marginBottom: 16 }}
+      >
+        Back to Cart
+      </Button>
+
       <Title level={2}>Checkout</Title>
 
+      {/* Progress Steps */}
       <Steps
         current={currentStep}
         items={[
@@ -99,60 +173,124 @@ export default function CheckoutPage() {
       />
 
       <Row gutter={24}>
+        {/* Main Content */}
         <Col xs={24} md={14}>
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            {/* Step 1: Shipping */}
             {currentStep === 0 && (
               <Card title="Shipping Information">
-                <Form.Item name="fullName" label="Full Name" rules={[{ required: true }]}>
-                  <Input placeholder="John Doe" />
+                <Form.Item 
+                  name="fullName" 
+                  label="Full Name" 
+                  rules={[{ required: true, message: 'Please enter your name' }]}
+                >
+                  <Input placeholder="John Doe" size="large" />
                 </Form.Item>
-                <Form.Item name="phone" label="Phone Number" rules={[{ required: true }]}>
-                  <Input placeholder="+1 234 567 8900" />
+                
+                <Form.Item 
+                  name="phone" 
+                  label="Phone Number" 
+                  rules={[{ required: true, message: 'Please enter your phone number' }]}
+                >
+                  <Input placeholder="+1 234 567 8900" size="large" />
                 </Form.Item>
-                <Form.Item name="address" label="Street Address" rules={[{ required: true }]}>
-                  <Input placeholder="123 Main Street" />
+                
+                <Form.Item 
+                  name="address" 
+                  label="Street Address" 
+                  rules={[{ required: true, message: 'Please enter your address' }]}
+                >
+                  <Input placeholder="123 Main Street, Apt 4B" size="large" />
                 </Form.Item>
+                
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Form.Item name="city" label="City" rules={[{ required: true }]}>
-                      <Input placeholder="New York" />
+                    <Form.Item 
+                      name="city" 
+                      label="City" 
+                      rules={[{ required: true, message: 'Please enter city' }]}
+                    >
+                      <Input placeholder="New York" size="large" />
                     </Form.Item>
                   </Col>
                   <Col span={6}>
-                    <Form.Item name="state" label="State" rules={[{ required: true }]}>
-                      <Input placeholder="NY" />
+                    <Form.Item 
+                      name="state" 
+                      label="State" 
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input placeholder="NY" size="large" />
                     </Form.Item>
                   </Col>
                   <Col span={6}>
-                    <Form.Item name="zipCode" label="ZIP Code" rules={[{ required: true }]}>
-                      <Input placeholder="10001" />
+                    <Form.Item 
+                      name="zipCode" 
+                      label="ZIP Code" 
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input placeholder="10001" size="large" />
                     </Form.Item>
                   </Col>
                 </Row>
-                <Button type="primary" onClick={() => {
-                  form.validateFields(['fullName', 'phone', 'address', 'city', 'state', 'zipCode'])
-                    .then(() => setCurrentStep(1))
-                    .catch(() => {});
-                }}>
+                
+                <Button type="primary" size="large" onClick={() => validateStep(0)}>
                   Continue to Payment
                 </Button>
               </Card>
             )}
 
+            {/* Step 2: Payment */}
             {currentStep === 1 && (
               <Card title="Payment Method">
-                <Radio.Group value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                <Radio.Group 
+                  value={paymentMethod} 
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ width: '100%' }}
+                >
                   <Space direction="vertical" style={{ width: '100%' }}>
-                    <Radio value="cod" style={{ padding: '12px 0' }}>
-                      <Space direction="vertical" size={0}>
-                        <Text strong>Cash on Delivery (COD)</Text>
-                        <Text type="secondary">Pay when you receive your order</Text>
+                    <Radio 
+                      value="cod" 
+                      style={{ 
+                        padding: 16, 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        width: '100%',
+                        marginRight: 0,
+                      }}
+                    >
+                      <Space>
+                        <WalletOutlined style={{ fontSize: 20 }} />
+                        <div>
+                          <Text strong>Cash on Delivery (COD)</Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Pay when you receive your order
+                          </Text>
+                        </div>
                       </Space>
                     </Radio>
-                    <Radio value="online" disabled style={{ padding: '12px 0' }}>
-                      <Space direction="vertical" size={0}>
-                        <Text strong style={{ color: '#999' }}>Online Payment</Text>
-                        <Text type="secondary">Coming soon</Text>
+                    
+                    <Radio 
+                      value="online" 
+                      disabled
+                      style={{ 
+                        padding: 16, 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        width: '100%',
+                        marginRight: 0,
+                        opacity: 0.6,
+                      }}
+                    >
+                      <Space>
+                        <CreditCardOutlined style={{ fontSize: 20 }} />
+                        <div>
+                          <Text strong style={{ color: '#9ca3af' }}>Online Payment</Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Coming soon - Credit card, PayPal, etc.
+                          </Text>
+                        </div>
                       </Space>
                     </Radio>
                   </Space>
@@ -162,25 +300,33 @@ export default function CheckoutPage() {
 
                 <Form.Item name="customMessage" label="Order Notes (Optional)">
                   <TextArea 
-                    placeholder="Special instructions for your order..."
+                    placeholder="Special instructions for delivery..."
                     rows={3}
                   />
                 </Form.Item>
 
                 <Space>
                   <Button onClick={() => setCurrentStep(0)}>Back</Button>
-                  <Button type="primary" onClick={() => setCurrentStep(2)}>
+                  <Button type="primary" size="large" onClick={() => validateStep(1)}>
                     Review Order
                   </Button>
                 </Space>
               </Card>
             )}
 
+            {/* Step 3: Review */}
             {currentStep === 2 && (
               <Card title="Review Your Order">
-                <div style={{ marginBottom: 16 }}>
-                  <Text strong>Shipping Address</Text>
-                  <div style={{ marginTop: 8, padding: 12, background: '#fafafa', borderRadius: 8 }}>
+                {/* Shipping Summary */}
+                <div style={{ marginBottom: 24 }}>
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    Shipping Address
+                  </Text>
+                  <div style={{ 
+                    padding: 16, 
+                    background: '#f9fafb', 
+                    borderRadius: 8,
+                  }}>
                     <Text>{form.getFieldValue('fullName')}</Text><br />
                     <Text type="secondary">{form.getFieldValue('phone')}</Text><br />
                     <Text type="secondary">
@@ -189,37 +335,58 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <Text strong>Payment Method</Text>
-                  <div style={{ marginTop: 8 }}>
-                    <Text>{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</Text>
-                  </div>
+                {/* Payment Summary */}
+                <div style={{ marginBottom: 24 }}>
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    Payment Method
+                  </Text>
+                  <Text>{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</Text>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <Text strong>Items ({cart.length})</Text>
-                  {cart.map(item => (
-                    <div key={`${item.productId}-${item.sizeId}`} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between',
-                      padding: '8px 0',
-                      borderBottom: '1px solid #f0f0f0',
-                    }}>
-                      <Text>{item.product.name} ({item.size.size}) x {item.quantity}</Text>
-                      <Text>${(getPrice(item.size) * item.quantity).toFixed(2)}</Text>
+                {/* Order Items */}
+                <div style={{ marginBottom: 24 }}>
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    Items ({items.length})
+                  </Text>
+                  {items.map(item => (
+                    <div 
+                      key={`${item.productId}-${item.sizeId}`} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        padding: '8px 0',
+                        borderBottom: '1px solid #f0f0f0',
+                      }}
+                    >
+                      <Text>
+                        {item.product.name} ({item.size.size}) x {item.quantity}
+                      </Text>
+                      <Text strong>
+                        ${(getItemPrice(item) * item.quantity).toFixed(2)}
+                      </Text>
                     </div>
                   ))}
                 </div>
 
                 <Alert
-                  message="By placing this order, you agree to our Terms of Service and Privacy Policy."
+                  message={
+                    <Space>
+                      <LockOutlined />
+                      <span>Your payment information is secure</span>
+                    </Space>
+                  }
                   type="info"
                   style={{ marginBottom: 16 }}
                 />
 
                 <Space>
                   <Button onClick={() => setCurrentStep(1)}>Back</Button>
-                  <Button type="primary" htmlType="submit" loading={loading}>
+                  <Button 
+                    type="primary" 
+                    size="large"
+                    htmlType="submit" 
+                    loading={loading}
+                  >
                     Place Order (${total.toFixed(2)})
                   </Button>
                 </Space>
@@ -228,19 +395,29 @@ export default function CheckoutPage() {
           </Form>
         </Col>
 
+        {/* Order Summary Sidebar */}
         <Col xs={24} md={10}>
-          <Card title="Order Summary">
-            {cart.map(item => (
-              <div key={`${item.productId}-${item.sizeId}`} style={{ 
-                display: 'flex', 
-                gap: 12,
-                padding: '8px 0',
-                borderBottom: '1px solid #f0f0f0',
-              }}>
+          <Card title="Order Summary" style={{ position: 'sticky', top: 88 }}>
+            {/* Items */}
+            {items.map(item => (
+              <div 
+                key={`${item.productId}-${item.sizeId}`} 
+                style={{ 
+                  display: 'flex', 
+                  gap: 12,
+                  padding: '12px 0',
+                  borderBottom: '1px solid #f0f0f0',
+                }}
+              >
                 <img
-                  src={item.product.images[0] || "/placeholder.svg"}
+                  src={item.product.images[0] || '/placeholder.svg'}
                   alt={item.product.name}
-                  style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
+                  style={{ 
+                    width: 56, 
+                    height: 56, 
+                    objectFit: 'cover', 
+                    borderRadius: 8,
+                  }}
                 />
                 <div style={{ flex: 1 }}>
                   <Text style={{ fontSize: 13 }}>{item.product.name}</Text>
@@ -249,24 +426,32 @@ export default function CheckoutPage() {
                     {item.size.size} x {item.quantity}
                   </Text>
                 </div>
-                <Text>${(getPrice(item.size) * item.quantity).toFixed(2)}</Text>
+                <Text strong>${(getItemPrice(item) * item.quantity).toFixed(2)}</Text>
               </div>
             ))}
 
             <Divider />
 
+            {/* Coupon */}
             <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
               <Input 
                 placeholder="Coupon code" 
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
+                disabled={!!appliedCoupon}
               />
-              <Button onClick={handleApplyCoupon}>Apply</Button>
+              <Button 
+                onClick={handleApplyCoupon}
+                disabled={!!appliedCoupon}
+              >
+                Apply
+              </Button>
             </Space.Compact>
 
             {appliedCoupon && (
               <Alert
-                message={`Coupon "${appliedCoupon.code}" applied: ${appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}% off` : `$${appliedCoupon.value} off`}`}
+                message={`"${appliedCoupon.code}" applied`}
+                description={`${appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`} off`}
                 type="success"
                 closable
                 onClose={() => setAppliedCoupon(null)}
@@ -274,31 +459,35 @@ export default function CheckoutPage() {
               />
             )}
 
+            {/* Totals */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text>Subtotal</Text>
               <Text>${subtotal.toFixed(2)}</Text>
             </div>
+            
             {discount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text type="success">Discount</Text>
                 <Text type="success">-${discount.toFixed(2)}</Text>
               </div>
             )}
+            
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text>Shipping</Text>
               <Text>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</Text>
             </div>
+            
             {shipping > 0 && (
               <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
                 Free shipping on orders over $50
               </Text>
             )}
             
-            <Divider />
+            <Divider style={{ margin: '12px 0' }} />
             
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Text strong style={{ fontSize: 16 }}>Total</Text>
-              <Text strong style={{ fontSize: 18 }}>${total.toFixed(2)}</Text>
+              <Text strong style={{ fontSize: 20 }}>${total.toFixed(2)}</Text>
             </div>
           </Card>
         </Col>

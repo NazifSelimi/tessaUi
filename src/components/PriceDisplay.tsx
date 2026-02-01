@@ -1,5 +1,14 @@
+/**
+ * Price Display Component
+ * 
+ * Role-aware price display that shows:
+ * - Retail price for guests/users
+ * - Stylist price for stylists (with crossed retail)
+ * - Both prices for distributors and admins
+ */
+
 import { Typography, Space } from 'antd';
-import { useApp } from '@/store/AppContext';
+import { useAuth } from '@/contexts';
 import type { ProductSize } from '@/types';
 
 const { Text } = Typography;
@@ -8,46 +17,124 @@ interface PriceDisplayProps {
   size: ProductSize;
   showBothPrices?: boolean;
   large?: boolean;
+  showSavings?: boolean;
 }
 
-export default function PriceDisplay({ size, showBothPrices = false, large = false }: PriceDisplayProps) {
-  const { currentRole } = useApp();
+export default function PriceDisplay({ 
+  size, 
+  showBothPrices = false, 
+  large = false,
+  showSavings = false,
+}: PriceDisplayProps) {
+  const { currentRole, isProfessional, isAdmin, isDistributor } = useAuth();
   
-  const fontSize = large ? 24 : 16;
-  const smallFontSize = large ? 16 : 12;
+  const primaryFontSize = large ? 24 : 16;
+  const secondaryFontSize = large ? 16 : 12;
+
+  // Calculate savings percentage
+  const savingsPercent = Math.round(
+    ((size.retailPrice - size.stylistPrice) / size.retailPrice) * 100
+  );
 
   // Distributor and admin always see both prices
-  if (showBothPrices || currentRole === 'distributor' || currentRole === 'admin') {
+  if (showBothPrices || isDistributor || isAdmin) {
     return (
-      <Space direction="vertical" size={0}>
-        <Text style={{ fontSize: smallFontSize }} type="secondary">
-          Retail: <span style={{ textDecoration: 'none' }}>${size.retailPrice.toFixed(2)}</span>
+      <Space direction="vertical" size={2}>
+        <Text style={{ fontSize: secondaryFontSize }} type="secondary">
+          Retail: ${size.retailPrice.toFixed(2)}
         </Text>
-        <Text style={{ fontSize, fontWeight: 600, color: '#16a34a' }}>
-          Stylist: ${size.stylistPrice.toFixed(2)}
+        <Space size={8} align="baseline">
+          <Text 
+            style={{ 
+              fontSize: primaryFontSize, 
+              fontWeight: 600, 
+              color: '#10b981',
+            }}
+          >
+            ${size.stylistPrice.toFixed(2)}
+          </Text>
+          {showSavings && savingsPercent > 0 && (
+            <Text 
+              style={{ 
+                fontSize: 11, 
+                background: '#dcfce7', 
+                color: '#16a34a',
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontWeight: 500,
+              }}
+            >
+              Save {savingsPercent}%
+            </Text>
+          )}
+        </Space>
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          Stylist Price
         </Text>
       </Space>
     );
   }
 
   // Stylist sees stylist price with crossed out retail
-  if (currentRole === 'stylist') {
+  if (isProfessional) {
     return (
-      <Space size={8} align="baseline">
-        <Text className="price-crossed" style={{ fontSize: smallFontSize }}>
+      <Space size={8} align="baseline" wrap>
+        <Text 
+          style={{ 
+            fontSize: secondaryFontSize, 
+            textDecoration: 'line-through',
+            color: '#9ca3af',
+          }}
+        >
           ${size.retailPrice.toFixed(2)}
         </Text>
-        <Text className="price-stylist" style={{ fontSize }}>
+        <Text 
+          style={{ 
+            fontSize: primaryFontSize, 
+            fontWeight: 600,
+            color: '#10b981',
+          }}
+        >
           ${size.stylistPrice.toFixed(2)}
         </Text>
+        {showSavings && savingsPercent > 0 && (
+          <Text 
+            style={{ 
+              fontSize: 11, 
+              background: '#dcfce7', 
+              color: '#16a34a',
+              padding: '2px 6px',
+              borderRadius: 4,
+              fontWeight: 500,
+            }}
+          >
+            -{savingsPercent}%
+          </Text>
+        )}
       </Space>
     );
   }
 
-  // Guest/User sees retail price
+  // Guest/User sees retail price only
   return (
-    <Text className="price-retail" style={{ fontSize }}>
+    <Text 
+      style={{ 
+        fontSize: primaryFontSize, 
+        fontWeight: 600,
+        color: '#1a1a1a',
+      }}
+    >
       ${size.retailPrice.toFixed(2)}
     </Text>
   );
+}
+
+/**
+ * Format currency helper
+ */
+export function formatPrice(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+  }).format(amount);
 }

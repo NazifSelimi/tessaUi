@@ -1,298 +1,151 @@
 /**
- * API Client for Tessa Shop
+ * Axios API Client for Tessa Shop
  * 
- * This file contains the API interface layer.
- * Currently uses mock data but is structured to easily connect to a Laravel backend.
+ * This module provides a configured Axios instance for all API calls.
+ * Features:
+ * - Base URL configuration from environment variables
+ * - Bearer token authentication interceptor
+ * - Automatic 401 handling with token refresh/logout
+ * - Request/response error handling
+ * - CSRF token support (ready for Laravel)
  * 
- * TODO: Replace mock implementations with actual API calls to Laravel backend
+ * TODO: Configure VITE_API_URL in your .env file
+ * Example: VITE_API_URL=https://api.yourdomain.com/api
  */
 
-import { products, users, orders, stylistRequests, stylistCodes, coupons, categories, brands } from '@/mock/data';
-import type { Product, User, Order, StylistRequest, StylistCode, Coupon, Category, Brand, CartItem, UserRole } from '@/types';
+import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-// Simulated delay for more realistic mock behavior
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Storage keys for authentication tokens
+const TOKEN_KEY = 'tessa_auth_token';
+const REFRESH_TOKEN_KEY = 'tessa_refresh_token';
 
-// ============ Products ============
+// Create axios instance with default configuration
+const apiClient: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    // TODO: Add CSRF token header for Laravel Sanctum
+    // 'X-Requested-With': 'XMLHttpRequest',
+  },
+  // Enable credentials for cookie-based auth (Laravel Sanctum)
+  withCredentials: true,
+});
 
-export async function getProducts(filters?: {
-  category?: string;
-  brand?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  search?: string;
-  inStock?: boolean;
-}): Promise<Product[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/products
-  let result = [...products];
-  
-  if (filters?.category) {
-    result = result.filter(p => p.category === filters.category);
+// Request interceptor - adds auth token to requests
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error: AxiosError) => {
+    return Promise.reject(error);
   }
-  if (filters?.brand) {
-    result = result.filter(p => p.brand.toLowerCase() === filters.brand?.toLowerCase());
+);
+
+// Response interceptor - handles auth errors and token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      // TODO: Implement token refresh logic
+      // const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      // if (refreshToken && !originalRequest?._retry) {
+      //   originalRequest._retry = true;
+      //   try {
+      //     const { data } = await axios.post(`${apiClient.defaults.baseURL}/auth/refresh`, {
+      //       refresh_token: refreshToken,
+      //     });
+      //     localStorage.setItem(TOKEN_KEY, data.access_token);
+      //     if (originalRequest) {
+      //       originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+      //       return apiClient(originalRequest);
+      //     }
+      //   } catch (refreshError) {
+      //     // Refresh failed, clear tokens and redirect to login
+      //     clearAuthTokens();
+      //     window.location.href = '/login';
+      //     return Promise.reject(refreshError);
+      //   }
+      // }
+      
+      // No refresh token or refresh failed - clear auth and redirect
+      clearAuthTokens();
+      
+      // Don't redirect if already on auth pages
+      const authPaths = ['/login', '/register', '/forgot-password'];
+      if (!authPaths.some(path => window.location.pathname.startsWith(path))) {
+        window.location.href = '/login';
+      }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access forbidden - insufficient permissions');
+    }
+    
+    // Handle 422 Validation Error (Laravel)
+    if (error.response?.status === 422) {
+      // Return validation errors in a structured format
+      return Promise.reject({
+        ...error,
+        validationErrors: error.response.data,
+      });
+    }
+    
+    // Handle 429 Too Many Requests (rate limiting)
+    if (error.response?.status === 429) {
+      console.error('Rate limit exceeded. Please try again later.');
+    }
+    
+    // Handle 500+ Server Errors
+    if (error.response && error.response.status >= 500) {
+      console.error('Server error occurred. Please try again later.');
+    }
+    
+    return Promise.reject(error);
   }
-  if (filters?.minPrice !== undefined) {
-    result = result.filter(p => p.sizes.some(s => s.retailPrice >= (filters.minPrice || 0)));
+);
+
+/**
+ * Set authentication tokens in local storage
+ */
+export function setAuthTokens(accessToken: string, refreshToken?: string): void {
+  localStorage.setItem(TOKEN_KEY, accessToken);
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
-  if (filters?.maxPrice !== undefined) {
-    result = result.filter(p => p.sizes.some(s => s.retailPrice <= (filters.maxPrice || Infinity)));
-  }
-  if (filters?.search) {
-    const searchLower = filters.search.toLowerCase();
-    result = result.filter(p => 
-      p.name.toLowerCase().includes(searchLower) || 
-      p.brand.toLowerCase().includes(searchLower)
-    );
-  }
-  if (filters?.inStock) {
-    result = result.filter(p => p.inStock && p.sizes.some(s => s.stock > 0));
-  }
-  
-  return result;
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  await delay(200);
-  // TODO: Replace with API call: GET /api/products/:slug
-  return products.find(p => p.slug === slug);
+/**
+ * Clear all authentication tokens
+ */
+export function clearAuthTokens(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
-export async function getCategories(): Promise<Category[]> {
-  await delay(100);
-  // TODO: Replace with API call: GET /api/categories
-  return categories;
+/**
+ * Get current access token
+ */
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export async function getBrands(): Promise<Brand[]> {
-  await delay(100);
-  // TODO: Replace with API call: GET /api/brands
-  return brands;
+/**
+ * Check if user is authenticated (has token)
+ */
+export function isAuthenticated(): boolean {
+  return !!getAuthToken();
 }
 
-// ============ Auth ============
-
-export async function login(email: string, _password: string): Promise<User | null> {
-  await delay(500);
-  // TODO: Replace with API call: POST /api/auth/login
-  const user = users.find(u => u.email === email);
-  return user || null;
-}
-
-export async function register(_data: {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-}): Promise<User> {
-  await delay(500);
-  // TODO: Replace with API call: POST /api/auth/register
-  const newUser: User = {
-    id: String(Date.now()),
-    email: _data.email,
-    name: _data.name,
-    phone: _data.phone,
-    role: 'user',
-    createdAt: new Date().toISOString(),
-  };
-  return newUser;
-}
-
-export async function forgotPassword(_email: string): Promise<boolean> {
-  await delay(500);
-  // TODO: Replace with API call: POST /api/auth/forgot-password
-  return true;
-}
-
-// ============ Orders ============
-
-export async function getOrders(userId?: string): Promise<Order[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/orders
-  if (userId) {
-    return orders.filter(o => o.userId === userId);
-  }
-  return orders;
-}
-
-export async function getOrderById(orderId: string): Promise<Order | undefined> {
-  await delay(200);
-  // TODO: Replace with API call: GET /api/orders/:id
-  return orders.find(o => o.id === orderId);
-}
-
-export async function createOrder(_data: {
-  items: CartItem[];
-  shippingAddress: Order['shippingAddress'];
-  paymentMethod: 'cod' | 'online';
-  customMessage?: string;
-  couponCode?: string;
-  userRole: UserRole;
-}): Promise<Order> {
-  await delay(500);
-  // TODO: Replace with API call: POST /api/orders
-  const newOrder: Order = {
-    id: `ORD-${String(Date.now()).slice(-6)}`,
-    userId: '4',
-    items: _data.items.map(item => ({
-      productId: item.productId,
-      sizeId: item.sizeId,
-      productName: item.product.name,
-      sizeName: item.size.size,
-      quantity: item.quantity,
-      unitPrice: _data.userRole === 'stylist' || _data.userRole === 'distributor' 
-        ? item.size.stylistPrice 
-        : item.size.retailPrice,
-      total: item.quantity * (_data.userRole === 'stylist' || _data.userRole === 'distributor' 
-        ? item.size.stylistPrice 
-        : item.size.retailPrice),
-    })),
-    subtotal: 0,
-    discount: 0,
-    shipping: 5.99,
-    total: 0,
-    status: 'pending',
-    paymentMethod: _data.paymentMethod,
-    paymentStatus: 'pending',
-    shippingAddress: _data.shippingAddress,
-    customMessage: _data.customMessage,
-    couponCode: _data.couponCode,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  newOrder.subtotal = newOrder.items.reduce((sum, item) => sum + item.total, 0);
-  newOrder.total = newOrder.subtotal + newOrder.shipping - newOrder.discount;
-  return newOrder;
-}
-
-export async function updateOrderStatus(orderId: string, status: Order['status']): Promise<Order | undefined> {
-  await delay(300);
-  // TODO: Replace with API call: PATCH /api/orders/:id/status
-  const order = orders.find(o => o.id === orderId);
-  if (order) {
-    order.status = status;
-    order.updatedAt = new Date().toISOString();
-  }
-  return order;
-}
-
-// ============ Users (Admin) ============
-
-export async function getUsers(): Promise<User[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/admin/users
-  return users;
-}
-
-export async function updateUserRole(userId: string, role: UserRole): Promise<User | undefined> {
-  await delay(300);
-  // TODO: Replace with API call: PATCH /api/admin/users/:id/role
-  const user = users.find(u => u.id === userId);
-  if (user) {
-    user.role = role;
-  }
-  return user;
-}
-
-// ============ Stylist Requests ============
-
-export async function getStylistRequests(): Promise<StylistRequest[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/admin/stylist-requests
-  return stylistRequests;
-}
-
-export async function createStylistRequest(_data: {
-  userId: string;
-  userName: string;
-  userEmail: string;
-  salonName?: string;
-  salonAddress?: string;
-  experience?: string;
-  referralCode?: string;
-}): Promise<StylistRequest> {
-  await delay(500);
-  // TODO: Replace with API call: POST /api/stylist-requests
-  const newRequest: StylistRequest = {
-    id: `SR-${String(Date.now()).slice(-6)}`,
-    ..._data,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-  };
-  return newRequest;
-}
-
-export async function reviewStylistRequest(
-  requestId: string, 
-  action: 'approve' | 'reject',
-  _reviewerEmail: string
-): Promise<StylistRequest | undefined> {
-  await delay(300);
-  // TODO: Replace with API call: PATCH /api/admin/stylist-requests/:id/review
-  const request = stylistRequests.find(r => r.id === requestId);
-  if (request) {
-    request.status = action === 'approve' ? 'approved' : 'rejected';
-    request.reviewedAt = new Date().toISOString();
-    request.reviewedBy = _reviewerEmail;
-  }
-  return request;
-}
-
-// ============ Stylist Codes (Distributor) ============
-
-export async function getStylistCodes(distributorId?: string): Promise<StylistCode[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/distributor/stylist-codes
-  if (distributorId) {
-    return stylistCodes.filter(c => c.distributorId === distributorId);
-  }
-  return stylistCodes;
-}
-
-export async function createStylistCode(distributorId: string): Promise<StylistCode> {
-  await delay(300);
-  // TODO: Replace with API call: POST /api/distributor/stylist-codes
-  const code = `CODE${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-  const newCode: StylistCode = {
-    id: `SC-${String(Date.now()).slice(-6)}`,
-    code,
-    distributorId,
-    createdAt: new Date().toISOString(),
-    isActive: true,
-  };
-  return newCode;
-}
-
-// ============ Coupons ============
-
-export async function getCoupons(): Promise<Coupon[]> {
-  await delay(300);
-  // TODO: Replace with API call: GET /api/admin/coupons
-  return coupons;
-}
-
-export async function validateCoupon(code: string, userRole: UserRole, subtotal: number): Promise<Coupon | null> {
-  await delay(200);
-  // TODO: Replace with API call: POST /api/coupons/validate
-  const coupon = coupons.find(c => 
-    c.code === code && 
-    c.status === 'active' && 
-    c.audience.includes(userRole) &&
-    subtotal >= c.minPurchase &&
-    c.usedCount < c.usageLimit
-  );
-  return coupon || null;
-}
-
-export async function createCoupon(data: Omit<Coupon, 'id' | 'usedCount' | 'status'>): Promise<Coupon> {
-  await delay(300);
-  // TODO: Replace with API call: POST /api/admin/coupons
-  const newCoupon: Coupon = {
-    ...data,
-    id: `C-${String(Date.now()).slice(-6)}`,
-    usedCount: 0,
-    status: 'active',
-  };
-  return newCoupon;
-}
+export default apiClient;
