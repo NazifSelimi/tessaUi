@@ -2,14 +2,15 @@
  * Admin Layout Component
  * 
  * Provides the layout structure for admin pages including:
- * - Collapsible sidebar navigation
+ * - Responsive collapsible sidebar navigation
+ * - Mobile drawer navigation
  * - Header with breadcrumbs
  * - Main content area
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Typography, Button, Space, Avatar, Dropdown, Badge } from 'antd';
+import { Layout, Menu, Typography, Button, Space, Avatar, Dropdown, Badge, Drawer } from 'antd';
 import {
   DashboardOutlined,
   ShoppingOutlined,
@@ -23,6 +24,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   BellOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts';
 import { stylistRequests } from '@/mock/data';
@@ -97,17 +99,35 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Get current page title
+  // Check screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 992);
+      if (window.innerWidth < 992) {
+        setCollapsed(true);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const currentTitle = pageTitles[location.pathname] || 'Admin';
 
-  // Handle logout
   const handleLogout = async () => {
     await logout();
     navigate('/');
   };
 
-  // User dropdown items
   const userMenuItems = [
     {
       key: 'profile',
@@ -125,122 +145,135 @@ export default function AdminLayout() {
     },
   ];
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <Sider 
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        trigger={null}
-        width={260} 
-        style={{ 
-          background: '#fff',
-          borderRight: '1px solid #f0f0f0',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
-        }}
-      >
-        {/* Logo */}
-        <div style={{ 
-          padding: collapsed ? '20px 12px' : '20px 24px', 
-          borderBottom: '1px solid #f0f0f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            background: '#1a1a1a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 16,
-          }}>
-            T
+  // Sidebar content (shared between desktop and mobile)
+  const SidebarContent = () => (
+    <>
+      {/* Logo */}
+      <div className="admin-sidebar__logo" style={{ 
+        padding: collapsed && !isMobile ? '20px 12px' : '20px 24px', 
+        borderBottom: '1px solid var(--color-border-light)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}>
+        <div className="admin-sidebar__logo-icon">T</div>
+        {(!collapsed || isMobile) && (
+          <div>
+            <Title level={5} style={{ margin: 0, lineHeight: 1.2 }}>TESSA</Title>
+            <Text type="secondary" style={{ fontSize: 11 }}>Admin Panel</Text>
           </div>
-          {!collapsed && (
-            <div>
-              <Title level={5} style={{ margin: 0, lineHeight: 1.2 }}>TESSA</Title>
-              <Text type="secondary" style={{ fontSize: 11 }}>Admin Panel</Text>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Navigation Menu */}
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
+      {/* Navigation Menu */}
+      <Menu
+        mode="inline"
+        selectedKeys={[location.pathname]}
+        items={menuItems}
+        onClick={() => isMobile && setMobileMenuOpen(false)}
+        style={{ 
+          borderRight: 'none', 
+          padding: '12px 8px',
+          flex: 1,
+        }}
+      />
+
+      {/* Back to Shop Link */}
+      <div style={{ 
+        padding: collapsed && !isMobile ? '16px 8px' : '16px',
+        borderTop: '1px solid var(--color-border-light)',
+      }}>
+        <Button 
+          type="text" 
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/')}
+          block
           style={{ 
-            borderRight: 'none', 
-            padding: '12px 8px',
+            justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
+            color: 'var(--color-text-secondary)',
           }}
-        />
+        >
+          {(!collapsed || isMobile) && 'Back to Shop'}
+        </Button>
+      </div>
+    </>
+  );
 
-        {/* Back to Shop Link */}
-        <div style={{ 
-          position: 'absolute', 
-          bottom: 60, 
-          left: 0, 
-          right: 0, 
-          padding: collapsed ? '0 8px' : '0 16px',
-        }}>
-          <Button 
-            type="text" 
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/')}
-            block
-            style={{ 
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              color: '#6b7280',
-            }}
-          >
-            {!collapsed && 'Back to Shop'}
-          </Button>
-        </div>
-      </Sider>
+  return (
+    <Layout className="admin-layout">
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider 
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          trigger={null}
+          width={260}
+          collapsedWidth={80}
+          className={`admin-sidebar ${collapsed ? 'admin-sidebar--collapsed' : 'admin-sidebar--expanded'}`}
+          style={{ 
+            background: 'var(--color-surface)',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <SidebarContent />
+        </Sider>
+      )}
+
+      {/* Mobile Menu Drawer */}
+      {isMobile && (
+        <Drawer
+          title={null}
+          placement="left"
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          width={280}
+          closeIcon={<CloseOutlined />}
+          styles={{ 
+            body: { padding: 0, display: 'flex', flexDirection: 'column' },
+            header: { display: 'none' }
+          }}
+        >
+          <SidebarContent />
+        </Drawer>
+      )}
 
       {/* Main Area */}
-      <Layout style={{ marginLeft: collapsed ? 80 : 260, transition: 'margin-left 0.2s' }}>
+      <Layout 
+        className={`admin-main ${collapsed && !isMobile ? 'admin-main--sidebar-collapsed' : 'admin-main--sidebar-expanded'}`}
+        style={{ 
+          marginLeft: isMobile ? 0 : (collapsed ? 80 : 260), 
+          transition: 'margin-left 0.2s',
+        }}
+      >
         {/* Header */}
-        <Header style={{ 
-          background: '#fff', 
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #f0f0f0',
-          position: 'sticky',
-          top: 0,
-          zIndex: 99,
-          height: 64,
-        }}>
+        <Header className="admin-header">
           {/* Left: Collapse button & Title */}
           <Space size="middle">
             <Button
               type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
+              icon={isMobile ? <MenuFoldOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+              onClick={() => isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)}
               style={{ fontSize: 16 }}
+              aria-label={isMobile ? 'Open menu' : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')}
             />
-            <Title level={4} style={{ margin: 0 }}>{currentTitle}</Title>
+            <Title level={4} style={{ margin: 0, fontSize: isMobile ? 16 : 20 }}>{currentTitle}</Title>
           </Space>
 
           {/* Right: Notifications & User */}
-          <Space size="middle">
+          <Space size={isMobile ? 'small' : 'middle'}>
             <Badge count={pendingCount} size="small">
               <Button 
                 type="text" 
                 icon={<BellOutlined style={{ fontSize: 18 }} />}
                 onClick={() => navigate('/admin/stylist-requests')}
+                aria-label="Notifications"
               />
             </Badge>
 
@@ -248,27 +281,25 @@ export default function AdminLayout() {
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar 
                   size={36} 
-                  style={{ background: '#1a1a1a' }}
+                  style={{ background: 'var(--color-primary)' }}
                 >
                   {user?.name?.charAt(0).toUpperCase() || 'A'}
                 </Avatar>
-                <div style={{ lineHeight: 1.2 }}>
-                  <Text strong style={{ display: 'block', fontSize: 13 }}>
-                    {user?.name || 'Admin'}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 11 }}>Administrator</Text>
-                </div>
+                {!isMobile && (
+                  <div style={{ lineHeight: 1.2 }}>
+                    <Text strong style={{ display: 'block', fontSize: 13 }}>
+                      {user?.name || 'Admin'}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>Administrator</Text>
+                  </div>
+                )}
               </Space>
             </Dropdown>
           </Space>
         </Header>
 
         {/* Content */}
-        <Content style={{ 
-          padding: 24, 
-          background: '#fafafa',
-          minHeight: 'calc(100vh - 64px)',
-        }}>
+        <Content className="admin-content">
           <Outlet />
         </Content>
       </Layout>

@@ -3,114 +3,74 @@
  * 
  * Multi-step checkout process:
  * 1. Shipping information
- * 2. Payment method selection
- * 3. Order review and confirmation
+ * 2. Payment details
+ * 3. Order review
+ * 
+ * Includes discount code application with role-based validation.
  */
 
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Typography, Form, Input, Button, Card, Steps, Radio, Space, 
-  Divider, message, Alert, Row, Col, Result,
+import { useNavigate } from 'react-router-dom';
+import {
+  Row, Col, Typography, Steps, Form, Input, Button, Card,
+  Divider, Space, Image, message, Alert, Tag, Result,
 } from 'antd';
-import { 
-  ArrowLeftOutlined, CheckCircleOutlined, CreditCardOutlined,
-  WalletOutlined, LockOutlined,
+import {
+  ShoppingOutlined, CreditCardOutlined, CheckCircleOutlined,
+  TagOutlined, DeleteOutlined, LoadingOutlined,
 } from '@ant-design/icons';
-import { useCart, useAuth } from '@/contexts';
-import { createOrder, validateCoupon } from '@/api/services';
-import type { Coupon } from '@/types';
+import { useCart, useAuth, useDiscounts } from '@/contexts';
 
-const { Title, Text } = Typography;
-const { TextArea } = Input;
+const { Title, Text, Paragraph } = Typography;
+
+interface ShippingFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+interface PaymentFormData {
+  cardNumber: string;
+  expiry: string;
+  cvv: string;
+  nameOnCard: string;
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const [form] = Form.useForm();
-  const { items, subtotal, clearCart, getItemPrice } = useCart();
-  const { currentRole } = useAuth();
+  const { items, subtotal, clearCart, getItemPrice, getItemTotal } = useCart();
+  const { isProfessional, currentRole } = useAuth();
+  const { appliedCode, applyCode, removeCode, discountAmount, discountPercent, error: discountError, clearError } = useDiscounts();
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>('cod');
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [shippingData, setShippingData] = useState<ShippingFormData | null>(null);
+  const [paymentData, setPaymentData] = useState<PaymentFormData | null>(null);
+  const [discountInput, setDiscountInput] = useState('');
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
 
-  // Calculate totals
-  const shipping = subtotal >= 50 ? 0 : 5.99;
-  const discount = appliedCoupon 
-    ? appliedCoupon.type === 'percentage' 
-      ? subtotal * (appliedCoupon.value / 100)
-      : appliedCoupon.value
-    : 0;
-  const total = subtotal + shipping - discount;
+  const [shippingForm] = Form.useForm();
+  const [paymentForm] = Form.useForm();
 
-  // Apply coupon
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
-    
-    const coupon = await validateCoupon(couponCode, currentRole, subtotal);
-    if (coupon) {
-      setAppliedCoupon(coupon);
-      message.success(`Coupon applied: ${coupon.type === 'percentage' ? `${coupon.value}%` : `$${coupon.value}`} off`);
-    } else {
-      message.error('Invalid or expired coupon code');
-    }
-  };
+  // Shipping cost calculation
+  const shippingCost = subtotal > 50 ? 0 : 5.99;
+  const taxRate = 0.08;
+  const tax = (subtotal - discountAmount) * taxRate;
+  const total = subtotal - discountAmount + shippingCost + tax;
 
-  // Submit order
-  const handleSubmit = async (values: Record<string, string>) => {
-    setLoading(true);
-    try {
-      const order = await createOrder({
-        items,
-        shippingAddress: {
-          fullName: values.fullName,
-          phone: values.phone,
-          address: values.address,
-          city: values.city,
-          state: values.state,
-          zipCode: values.zipCode,
-        },
-        paymentMethod,
-        customMessage: values.customMessage,
-        couponCode: appliedCoupon?.code,
-      }, currentRole);
-      
-      clearCart();
-      setOrderId(order.id);
-      setOrderComplete(true);
-      message.success('Order placed successfully!');
-    } catch (error) {
-      message.error('Failed to place order. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Validate step before proceeding
-  const validateStep = async (step: number) => {
-    if (step === 0) {
-      try {
-        await form.validateFields(['fullName', 'phone', 'address', 'city', 'state', 'zipCode']);
-        setCurrentStep(1);
-      } catch {
-        // Validation failed
-      }
-    } else if (step === 1) {
-      setCurrentStep(2);
-    }
-  };
-
-  // Empty cart state
+  // Empty cart check
   if (items.length === 0 && !orderComplete) {
     return (
-      <div style={{ textAlign: 'center', padding: 100 }}>
+      <div className="empty-state">
         <Title level={4}>Your cart is empty</Title>
-        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          Add some products to checkout
+        <Text type="secondary" className="empty-state__description">
+          Add some products before checking out.
         </Text>
         <Button type="primary" onClick={() => navigate('/')}>
           Continue Shopping
@@ -122,373 +82,485 @@ export default function CheckoutPage() {
   // Order complete state
   if (orderComplete) {
     return (
-      <div style={{ maxWidth: 600, margin: '40px auto' }}>
-        <Result
-          status="success"
-          icon={<CheckCircleOutlined style={{ color: '#10b981' }} />}
-          title="Order Placed Successfully!"
-          subTitle={
-            <Space direction="vertical" size={4}>
-              <Text>Order ID: <Text strong>{orderId}</Text></Text>
-              <Text type="secondary">
-                We'll send you an email confirmation shortly.
-              </Text>
-            </Space>
-          }
-          extra={[
-            <Button type="primary" key="orders" onClick={() => navigate('/account/orders')}>
-              View My Orders
-            </Button>,
-            <Button key="shop" onClick={() => navigate('/')}>
-              Continue Shopping
-            </Button>,
-          ]}
-        />
-      </div>
+      <Result
+        status="success"
+        title="Order Placed Successfully!"
+        subTitle="Thank you for your order. You will receive a confirmation email shortly."
+        extra={[
+          <Button type="primary" key="home" onClick={() => navigate('/')}>
+            Continue Shopping
+          </Button>,
+          <Button key="orders" onClick={() => navigate('/profile')}>
+            View Orders
+          </Button>,
+        ]}
+      />
     );
   }
 
+  // Handle shipping form submit
+  const handleShippingSubmit = (values: ShippingFormData) => {
+    setShippingData(values);
+    setCurrentStep(1);
+  };
+
+  // Handle payment form submit
+  const handlePaymentSubmit = (values: PaymentFormData) => {
+    setPaymentData(values);
+    setCurrentStep(2);
+  };
+
+  // Handle discount code application
+  const handleApplyDiscount = async () => {
+    if (!discountInput.trim()) return;
+    
+    setApplyingDiscount(true);
+    clearError();
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const success = applyCode(discountInput.trim(), subtotal);
+    
+    if (success) {
+      message.success('Discount code applied!');
+      setDiscountInput('');
+    }
+    
+    setApplyingDiscount(false);
+  };
+
+  // Place order
+  const handlePlaceOrder = async () => {
+    setPlacingOrder(true);
+    
+    // Simulate order processing
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    clearCart();
+    setOrderComplete(true);
+    setPlacingOrder(false);
+  };
+
+  // Step items
+  const steps = [
+    { title: 'Shipping', icon: <ShoppingOutlined /> },
+    { title: 'Payment', icon: <CreditCardOutlined /> },
+    { title: 'Review', icon: <CheckCircleOutlined /> },
+  ];
+
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <Button 
-        type="text" 
-        icon={<ArrowLeftOutlined />} 
-        onClick={() => navigate('/cart')}
-        style={{ marginBottom: 16 }}
-      >
-        Back to Cart
-      </Button>
+    <div className="checkout-page">
+      <Title level={2} style={{ marginBottom: 'var(--spacing-xl)' }}>Checkout</Title>
 
-      <Title level={2}>Checkout</Title>
-
-      {/* Progress Steps */}
-      <Steps
-        current={currentStep}
-        items={[
-          { title: 'Shipping' },
-          { title: 'Payment' },
-          { title: 'Review' },
-        ]}
-        style={{ marginBottom: 32 }}
+      <Steps 
+        current={currentStep} 
+        items={steps}
+        style={{ marginBottom: 'var(--spacing-2xl)' }}
+        size="small"
+        responsive={false}
       />
 
-      <Row gutter={24}>
-        {/* Main Content */}
-        <Col xs={24} md={14}>
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            {/* Step 1: Shipping */}
-            {currentStep === 0 && (
-              <Card title="Shipping Information">
-                <Form.Item 
-                  name="fullName" 
-                  label="Full Name" 
-                  rules={[{ required: true, message: 'Please enter your name' }]}
-                >
-                  <Input placeholder="John Doe" size="large" />
-                </Form.Item>
-                
-                <Form.Item 
-                  name="phone" 
-                  label="Phone Number" 
-                  rules={[{ required: true, message: 'Please enter your phone number' }]}
-                >
-                  <Input placeholder="+1 234 567 8900" size="large" />
-                </Form.Item>
-                
-                <Form.Item 
-                  name="address" 
-                  label="Street Address" 
-                  rules={[{ required: true, message: 'Please enter your address' }]}
-                >
-                  <Input placeholder="123 Main Street, Apt 4B" size="large" />
-                </Form.Item>
-                
+      <Row gutter={[32, 24]}>
+        {/* Form Section */}
+        <Col xs={24} lg={14}>
+          {/* Step 1: Shipping */}
+          {currentStep === 0 && (
+            <Card title="Shipping Information" className="checkout-card">
+              <Form
+                form={shippingForm}
+                layout="vertical"
+                onFinish={handleShippingSubmit}
+                initialValues={shippingData || undefined}
+              >
                 <Row gutter={16}>
-                  <Col span={12}>
-                    <Form.Item 
-                      name="city" 
-                      label="City" 
-                      rules={[{ required: true, message: 'Please enter city' }]}
-                    >
-                      <Input placeholder="New York" size="large" />
-                    </Form.Item>
-                  </Col>
-                  <Col span={6}>
-                    <Form.Item 
-                      name="state" 
-                      label="State" 
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="firstName"
+                      label="First Name"
                       rules={[{ required: true, message: 'Required' }]}
                     >
-                      <Input placeholder="NY" size="large" />
+                      <Input size="large" />
                     </Form.Item>
                   </Col>
-                  <Col span={6}>
-                    <Form.Item 
-                      name="zipCode" 
-                      label="ZIP Code" 
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="lastName"
+                      label="Last Name"
                       rules={[{ required: true, message: 'Required' }]}
                     >
-                      <Input placeholder="10001" size="large" />
+                      <Input size="large" />
                     </Form.Item>
                   </Col>
                 </Row>
-                
-                <Button type="primary" size="large" onClick={() => validateStep(0)}>
-                  Continue to Payment
-                </Button>
-              </Card>
-            )}
 
-            {/* Step 2: Payment */}
-            {currentStep === 1 && (
-              <Card title="Payment Method">
-                <Radio.Group 
-                  value={paymentMethod} 
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  style={{ width: '100%' }}
+                <Row gutter={16}>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="email"
+                      label="Email"
+                      rules={[
+                        { required: true, message: 'Required' },
+                        { type: 'email', message: 'Invalid email' },
+                      ]}
+                    >
+                      <Input size="large" type="email" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="phone"
+                      label="Phone"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" type="tel" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item
+                  name="address"
+                  label="Street Address"
+                  rules={[{ required: true, message: 'Required' }]}
                 >
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Radio 
-                      value="cod" 
-                      style={{ 
-                        padding: 16, 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 8,
-                        width: '100%',
-                        marginRight: 0,
-                      }}
-                    >
-                      <Space>
-                        <WalletOutlined style={{ fontSize: 20 }} />
-                        <div>
-                          <Text strong>Cash on Delivery (COD)</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Pay when you receive your order
-                          </Text>
-                        </div>
-                      </Space>
-                    </Radio>
-                    
-                    <Radio 
-                      value="online" 
-                      disabled
-                      style={{ 
-                        padding: 16, 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 8,
-                        width: '100%',
-                        marginRight: 0,
-                        opacity: 0.6,
-                      }}
-                    >
-                      <Space>
-                        <CreditCardOutlined style={{ fontSize: 20 }} />
-                        <div>
-                          <Text strong style={{ color: '#9ca3af' }}>Online Payment</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Coming soon - Credit card, PayPal, etc.
-                          </Text>
-                        </div>
-                      </Space>
-                    </Radio>
-                  </Space>
-                </Radio.Group>
+                  <Input size="large" />
+                </Form.Item>
 
-                <Divider />
+                <Row gutter={16}>
+                  <Col xs={24} sm={8}>
+                    <Form.Item
+                      name="city"
+                      label="City"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8}>
+                    <Form.Item
+                      name="state"
+                      label="State"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={8}>
+                    <Form.Item
+                      name="zip"
+                      label="ZIP Code"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                <Form.Item name="customMessage" label="Order Notes (Optional)">
-                  <TextArea 
-                    placeholder="Special instructions for delivery..."
-                    rows={3}
+                <Form.Item style={{ marginBottom: 0, marginTop: 'var(--spacing-lg)' }}>
+                  <Button type="primary" htmlType="submit" size="large" block>
+                    Continue to Payment
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          )}
+
+          {/* Step 2: Payment */}
+          {currentStep === 1 && (
+            <Card title="Payment Details" className="checkout-card">
+              <Alert
+                message="Demo Mode"
+                description="This is a demo. No real payment will be processed."
+                type="info"
+                showIcon
+                style={{ marginBottom: 'var(--spacing-xl)' }}
+              />
+
+              <Form
+                form={paymentForm}
+                layout="vertical"
+                onFinish={handlePaymentSubmit}
+                initialValues={paymentData || undefined}
+              >
+                <Form.Item
+                  name="cardNumber"
+                  label="Card Number"
+                  rules={[{ required: true, message: 'Required' }]}
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="1234 5678 9012 3456"
+                    maxLength={19}
                   />
                 </Form.Item>
 
-                <Space>
-                  <Button onClick={() => setCurrentStep(0)}>Back</Button>
-                  <Button type="primary" size="large" onClick={() => validateStep(1)}>
+                <Row gutter={16}>
+                  <Col xs={12}>
+                    <Form.Item
+                      name="expiry"
+                      label="Expiry"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" placeholder="MM/YY" maxLength={5} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12}>
+                    <Form.Item
+                      name="cvv"
+                      label="CVV"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input size="large" placeholder="123" maxLength={4} type="password" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item
+                  name="nameOnCard"
+                  label="Name on Card"
+                  rules={[{ required: true, message: 'Required' }]}
+                >
+                  <Input size="large" />
+                </Form.Item>
+
+                <Space style={{ width: '100%', marginTop: 'var(--spacing-lg)' }}>
+                  <Button onClick={() => setCurrentStep(0)} size="large">
+                    Back
+                  </Button>
+                  <Button type="primary" htmlType="submit" size="large" style={{ flex: 1 }}>
                     Review Order
                   </Button>
                 </Space>
-              </Card>
-            )}
+              </Form>
+            </Card>
+          )}
 
-            {/* Step 3: Review */}
-            {currentStep === 2 && (
-              <Card title="Review Your Order">
-                {/* Shipping Summary */}
-                <div style={{ marginBottom: 24 }}>
-                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    Shipping Address
-                  </Text>
-                  <div style={{ 
-                    padding: 16, 
-                    background: '#f9fafb', 
-                    borderRadius: 8,
-                  }}>
-                    <Text>{form.getFieldValue('fullName')}</Text><br />
-                    <Text type="secondary">{form.getFieldValue('phone')}</Text><br />
-                    <Text type="secondary">
-                      {form.getFieldValue('address')}, {form.getFieldValue('city')}, {form.getFieldValue('state')} {form.getFieldValue('zipCode')}
-                    </Text>
-                  </div>
-                </div>
+          {/* Step 3: Review */}
+          {currentStep === 2 && (
+            <Card title="Order Review" className="checkout-card">
+              {/* Shipping Address */}
+              <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                <Text strong style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>
+                  Shipping Address
+                </Text>
+                <Paragraph type="secondary" style={{ margin: 0 }}>
+                  {shippingData?.firstName} {shippingData?.lastName}<br />
+                  {shippingData?.address}<br />
+                  {shippingData?.city}, {shippingData?.state} {shippingData?.zip}<br />
+                  {shippingData?.email} • {shippingData?.phone}
+                </Paragraph>
+              </div>
 
-                {/* Payment Summary */}
-                <div style={{ marginBottom: 24 }}>
-                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    Payment Method
-                  </Text>
-                  <Text>{paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</Text>
-                </div>
+              <Divider />
 
-                {/* Order Items */}
-                <div style={{ marginBottom: 24 }}>
-                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    Items ({items.length})
-                  </Text>
+              {/* Payment Method */}
+              <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                <Text strong style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>
+                  Payment Method
+                </Text>
+                <Text type="secondary">
+                  Card ending in {paymentData?.cardNumber.slice(-4)}
+                </Text>
+              </div>
+
+              <Divider />
+
+              {/* Items */}
+              <div>
+                <Text strong style={{ display: 'block', marginBottom: 'var(--spacing-md)' }}>
+                  Items ({items.length})
+                </Text>
+                <Space direction="vertical" style={{ width: '100%' }}>
                   {items.map(item => (
                     <div 
-                      key={`${item.productId}-${item.sizeId}`} 
-                      style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        padding: '8px 0',
-                        borderBottom: '1px solid #f0f0f0',
-                      }}
+                      key={`${item.productId}-${item.sizeId}`}
+                      className="checkout-item"
                     >
-                      <Text>
-                        {item.product.name} ({item.size.size}) x {item.quantity}
-                      </Text>
-                      <Text strong>
-                        ${(getItemPrice(item) * item.quantity).toFixed(2)}
-                      </Text>
+                      <Image
+                        src={item.product.images[0]}
+                        alt={item.product.name}
+                        width={60}
+                        height={60}
+                        style={{ 
+                          objectFit: 'cover', 
+                          borderRadius: 'var(--radius-md)',
+                          flexShrink: 0,
+                        }}
+                        preview={false}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text strong ellipsis style={{ display: 'block' }}>{item.product.name}</Text>
+                        <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                          {item.size.size} × {item.quantity}
+                        </Text>
+                      </div>
+                      <Text strong>${getItemTotal(item).toFixed(2)}</Text>
                     </div>
                   ))}
-                </div>
-
-                <Alert
-                  message={
-                    <Space>
-                      <LockOutlined />
-                      <span>Your payment information is secure</span>
-                    </Space>
-                  }
-                  type="info"
-                  style={{ marginBottom: 16 }}
-                />
-
-                <Space>
-                  <Button onClick={() => setCurrentStep(1)}>Back</Button>
-                  <Button 
-                    type="primary" 
-                    size="large"
-                    htmlType="submit" 
-                    loading={loading}
-                  >
-                    Place Order (${total.toFixed(2)})
-                  </Button>
                 </Space>
-              </Card>
-            )}
-          </Form>
+              </div>
+
+              <Divider />
+
+              <Space style={{ width: '100%', marginTop: 'var(--spacing-lg)' }}>
+                <Button onClick={() => setCurrentStep(1)} size="large">
+                  Back
+                </Button>
+                <Button 
+                  type="primary" 
+                  size="large" 
+                  onClick={handlePlaceOrder}
+                  loading={placingOrder}
+                  style={{ flex: 1 }}
+                >
+                  {placingOrder ? 'Processing...' : `Place Order • $${total.toFixed(2)}`}
+                </Button>
+              </Space>
+            </Card>
+          )}
         </Col>
 
         {/* Order Summary Sidebar */}
-        <Col xs={24} md={10}>
-          <Card title="Order Summary" style={{ position: 'sticky', top: 88 }}>
-            {/* Items */}
-            {items.map(item => (
-              <div 
-                key={`${item.productId}-${item.sizeId}`} 
-                style={{ 
-                  display: 'flex', 
-                  gap: 12,
-                  padding: '12px 0',
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-              >
-                <img
-                  src={item.product.images[0] || '/placeholder.svg'}
-                  alt={item.product.name}
-                  style={{ 
-                    width: 56, 
-                    height: 56, 
-                    objectFit: 'cover', 
-                    borderRadius: 8,
-                  }}
-                />
-                <div style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13 }}>{item.product.name}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {item.size.size} x {item.quantity}
-                  </Text>
+        <Col xs={24} lg={10}>
+          <Card className="order-summary">
+            <Title level={5} style={{ marginBottom: 'var(--spacing-lg)' }}>Order Summary</Title>
+
+            {/* Items Preview */}
+            <div className="order-summary__items">
+              {items.slice(0, 3).map(item => (
+                <div 
+                  key={`${item.productId}-${item.sizeId}`}
+                  className="order-summary__item"
+                >
+                  <Image
+                    src={item.product.images[0]}
+                    alt={item.product.name}
+                    width={48}
+                    height={48}
+                    style={{ 
+                      objectFit: 'cover', 
+                      borderRadius: 'var(--radius-sm)',
+                      flexShrink: 0,
+                    }}
+                    preview={false}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text ellipsis style={{ fontSize: 'var(--font-size-sm)' }}>{item.product.name}</Text>
+                    <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)', display: 'block' }}>
+                      {item.size.size} × {item.quantity}
+                    </Text>
+                  </div>
+                  <Text style={{ fontSize: 'var(--font-size-sm)' }}>${getItemTotal(item).toFixed(2)}</Text>
                 </div>
-                <Text strong>${(getItemPrice(item) * item.quantity).toFixed(2)}</Text>
-              </div>
-            ))}
+              ))}
+              {items.length > 3 && (
+                <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                  +{items.length - 3} more items
+                </Text>
+              )}
+            </div>
 
             <Divider />
 
-            {/* Coupon */}
-            <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
-              <Input 
-                placeholder="Coupon code" 
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                disabled={!!appliedCoupon}
-              />
-              <Button 
-                onClick={handleApplyCoupon}
-                disabled={!!appliedCoupon}
-              >
-                Apply
-              </Button>
-            </Space.Compact>
-
-            {appliedCoupon && (
-              <Alert
-                message={`"${appliedCoupon.code}" applied`}
-                description={`${appliedCoupon.type === 'percentage' ? `${appliedCoupon.value}%` : `$${appliedCoupon.value}`} off`}
-                type="success"
-                closable
-                onClose={() => setAppliedCoupon(null)}
-                style={{ marginBottom: 16 }}
-              />
-            )}
-
-            {/* Totals */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text>Subtotal</Text>
-              <Text>${subtotal.toFixed(2)}</Text>
-            </div>
-            
-            {discount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text type="success">Discount</Text>
-                <Text type="success">-${discount.toFixed(2)}</Text>
-              </div>
-            )}
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text>Shipping</Text>
-              <Text>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</Text>
-            </div>
-            
-            {shipping > 0 && (
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                Free shipping on orders over $50
+            {/* Discount Code */}
+            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+              <Text strong style={{ display: 'block', marginBottom: 'var(--spacing-sm)' }}>
+                Discount Code
               </Text>
-            )}
-            
-            <Divider style={{ margin: '12px 0' }} />
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Text strong style={{ fontSize: 16 }}>Total</Text>
-              <Text strong style={{ fontSize: 20 }}>${total.toFixed(2)}</Text>
+              
+              {appliedCode ? (
+                <div className="applied-discount">
+                  <Space>
+                    <TagOutlined style={{ color: 'var(--color-success)' }} />
+                    <Text strong style={{ color: 'var(--color-success)' }}>
+                      {appliedCode.code}
+                    </Text>
+                    <Tag color="green">-{appliedCode.discount}%</Tag>
+                  </Space>
+                  <Button 
+                    type="text" 
+                    danger 
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={removeCode}
+                    aria-label="Remove discount code"
+                  />
+                </div>
+              ) : (
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input
+                    placeholder="Enter code"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    onPressEnter={handleApplyDiscount}
+                    prefix={<TagOutlined style={{ color: 'var(--color-text-muted)' }} />}
+                  />
+                  <Button 
+                    onClick={handleApplyDiscount}
+                    loading={applyingDiscount}
+                  >
+                    Apply
+                  </Button>
+                </Space.Compact>
+              )}
+
+              {discountError && (
+                <Text type="danger" style={{ fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-sm)' }}>
+                  {discountError}
+                </Text>
+              )}
+
+              {/* Role hint */}
+              {!appliedCode && isProfessional && (
+                <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-sm)' }}>
+                  You may have access to professional discount codes.
+                </Text>
+              )}
             </div>
+
+            <Divider />
+
+            {/* Price Breakdown */}
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <div className="price-row">
+                <Text type="secondary">Subtotal</Text>
+                <Text>${subtotal.toFixed(2)}</Text>
+              </div>
+              
+              {discountAmount > 0 && (
+                <div className="price-row">
+                  <Text type="secondary">Discount ({discountPercent}%)</Text>
+                  <Text style={{ color: 'var(--color-success)' }}>-${discountAmount.toFixed(2)}</Text>
+                </div>
+              )}
+              
+              <div className="price-row">
+                <Text type="secondary">Shipping</Text>
+                <Text>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</Text>
+              </div>
+              
+              <div className="price-row">
+                <Text type="secondary">Tax</Text>
+                <Text>${tax.toFixed(2)}</Text>
+              </div>
+            </Space>
+
+            <Divider />
+
+            <div className="price-row" style={{ fontSize: 'var(--font-size-lg)' }}>
+              <Text strong>Total</Text>
+              <Text strong style={{ fontSize: 'var(--font-size-xl)' }}>${total.toFixed(2)}</Text>
+            </div>
+
+            {/* Free Shipping Progress */}
+            {shippingCost > 0 && (
+              <Alert
+                message={`Add $${(50 - subtotal + discountAmount).toFixed(2)} more for free shipping`}
+                type="info"
+                showIcon
+                style={{ marginTop: 'var(--spacing-lg)' }}
+              />
+            )}
           </Card>
         </Col>
       </Row>

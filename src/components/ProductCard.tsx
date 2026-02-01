@@ -52,48 +52,26 @@ export default function ProductCard({ product, showQuickAdd = true }: ProductCar
   };
 
   return (
-    <Link to={`/product/${product.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+    <Link to={`/product/${product.slug}`} className="product-card" aria-label={`View ${product.name}`}>
       <Card
         hoverable
-        style={{ 
-          height: '100%',
-          overflow: 'hidden',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        }}
+        className="product-card-ant"
         styles={{
-          body: { padding: 16 },
+          body: { padding: 'var(--spacing-lg)' },
           cover: { overflow: 'hidden' },
         }}
         cover={
-          <div style={{ 
-            position: 'relative', 
-            paddingTop: '100%', 
-            background: '#f5f5f5',
-            overflow: 'hidden',
-          }}>
+          <div className="product-card__image-wrapper">
             {/* Product Image */}
             <img
               src={product.images[0] || '/placeholder.svg'}
               alt={product.name}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                transition: 'transform 0.3s ease',
-              }}
-              onMouseOver={(e) => {
-                (e.target as HTMLImageElement).style.transform = 'scale(1.05)';
-              }}
-              onMouseOut={(e) => {
-                (e.target as HTMLImageElement).style.transform = 'scale(1)';
-              }}
+              className="product-card__image"
+              loading="lazy"
             />
             
             {/* Badges */}
-            <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="product-card__badges">
               {product.featured && (
                 <Tag color="gold" style={{ margin: 0, fontWeight: 500 }}>
                   Featured
@@ -103,17 +81,7 @@ export default function ProductCard({ product, showQuickAdd = true }: ProductCar
             
             {/* Out of Stock Overlay */}
             {!inStock && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
+              <div className="product-card__overlay">
                 <Tag color="default" style={{ fontSize: 14, padding: '6px 16px' }}>
                   Out of Stock
                 </Tag>
@@ -122,25 +90,14 @@ export default function ProductCard({ product, showQuickAdd = true }: ProductCar
 
             {/* Quick Actions (on hover) */}
             {showQuickAdd && inStock && (
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '12px',
-                background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-                opacity: 0,
-                transition: 'opacity 0.2s ease',
-              }}
-              className="product-card-actions"
-              >
+              <div className="product-card__quick-actions">
                 <Space style={{ width: '100%', justifyContent: 'center' }}>
                   <Button 
                     type="primary" 
                     size="small"
                     icon={<ShoppingCartOutlined />}
                     onClick={handleQuickAdd}
-                    style={{ background: '#fff', color: '#1a1a1a', borderColor: '#fff' }}
+                    style={{ background: '#fff', color: 'var(--color-text)', borderColor: '#fff' }}
                   >
                     Quick Add
                   </Button>
@@ -160,38 +117,21 @@ export default function ProductCard({ product, showQuickAdd = true }: ProductCar
         }
       >
         {/* Brand */}
-        <Text 
-          type="secondary" 
-          style={{ 
-            fontSize: 12, 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.5px',
-            display: 'block',
-          }}
-        >
+        <Text className="product-card__brand">
           {product.brand}
         </Text>
         
         {/* Product Name */}
         <Title 
           level={5} 
-          style={{ 
-            margin: '6px 0 12px', 
-            fontSize: 14,
-            fontWeight: 500,
-            lineHeight: 1.4,
-          }} 
+          className="product-card__name"
           ellipsis={{ rows: 2 }}
         >
           {product.name}
         </Title>
         
         {/* Price & Add Button */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-end',
-        }}>
+        <div className="product-card__footer">
           <div>
             {product.sizes.length > 1 && (
               <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
@@ -208,19 +148,13 @@ export default function ProductCard({ product, showQuickAdd = true }: ProductCar
               icon={<ShoppingCartOutlined />}
               disabled={!inStock}
               onClick={handleQuickAdd}
+              aria-label={`Add ${product.name} to cart`}
             >
               Add
             </Button>
           )}
         </div>
       </Card>
-
-      {/* CSS for hover effect */}
-      <style>{`
-        .ant-card:hover .product-card-actions {
-          opacity: 1 !important;
-        }
-      `}</style>
     </Link>
   );
 }

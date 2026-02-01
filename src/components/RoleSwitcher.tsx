@@ -67,63 +67,51 @@ export default function RoleSwitcher() {
   if (minimized) {
     return (
       <Tooltip title="Dev Role Switcher - Click to expand">
-        <div 
+        <button 
           onClick={() => setMinimized(false)}
+          className="role-switcher"
           style={{
-            position: 'fixed',
-            bottom: 20,
-            right: 20,
-            zIndex: 1000,
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
-            background: '#1a1a1a',
+            background: 'var(--color-primary)',
+            border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+            padding: 0,
           }}
+          aria-label="Open dev role switcher"
         >
           <BugOutlined style={{ color: '#fff', fontSize: 18 }} />
-        </div>
+        </button>
       </Tooltip>
     );
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 20,
-      right: 20,
-      zIndex: 1000,
-      background: '#fff',
-      borderRadius: 12,
-      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
-      padding: 16,
-      minWidth: 220,
-      border: '1px solid #f0f0f0',
-    }}>
+    <div className="role-switcher" role="region" aria-label="Development role switcher">
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 12,
-      }}>
+      <div className="role-switcher__header">
         <Space size={6}>
-          <BugOutlined style={{ color: '#6b7280' }} />
-          <Text strong style={{ fontSize: 12, color: '#6b7280' }}>DEV MODE</Text>
+          <BugOutlined style={{ color: 'var(--color-text-secondary)' }} />
+          <Text className="role-switcher__title">DEV MODE</Text>
         </Space>
-        <CloseOutlined 
+        <button 
           onClick={() => setMinimized(true)}
           style={{ 
-            fontSize: 12, 
-            color: '#9ca3af', 
-            cursor: 'pointer',
+            background: 'none',
+            border: 'none',
             padding: 4,
-          }} 
-        />
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          aria-label="Minimize role switcher"
+        >
+          <CloseOutlined style={{ fontSize: 12, color: 'var(--color-text-muted)' }} />
+        </button>
       </div>
 
       {/* Role Selector */}
@@ -135,6 +123,7 @@ export default function RoleSwitcher() {
           style={{ width: '100%' }}
           size="small"
           optionLabelProp="label"
+          aria-label="Select development role"
         >
           {roleOptions.map(option => (
             <Select.Option 
@@ -158,9 +147,9 @@ export default function RoleSwitcher() {
 
         {/* Current Status */}
         <div style={{ 
-          background: '#fafafa', 
+          background: 'var(--color-background-alt)', 
           padding: '8px 10px', 
-          borderRadius: 6,
+          borderRadius: 'var(--radius-md)',
           fontSize: 11,
         }}>
           {user ? (
@@ -186,7 +175,7 @@ export default function RoleSwitcher() {
           fontSize: 10, 
           display: 'block', 
           marginTop: 8,
-          color: '#9ca3af',
+          color: 'var(--color-text-muted)',
         }}
       >
         This widget is only visible in development mode.

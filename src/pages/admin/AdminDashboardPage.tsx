@@ -31,12 +31,12 @@ import {
   RiseOutlined,
   FileTextOutlined,
   ArrowUpOutlined,
-  ArrowDownOutlined,
   TeamOutlined,
   ShoppingCartOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
-import { orders, users, stylistRequests, products } from '../../mock/data';
-import type { Order } from '../../types';
+import { orders, users, stylistRequests, products } from '@/mock/data';
+import type { Order } from '@/types';
 
 const { Title, Text } = Typography;
 
@@ -65,14 +65,24 @@ const AdminDashboardPage: React.FC = () => {
   const ordersChange = 8.3;
   const usersChange = 15.2;
 
+  // Responsive columns for mobile
   const orderColumns = [
     {
-      title: 'Order ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (id: string) => (
-        <Text strong style={{ fontFamily: 'monospace' }}>{id}</Text>
+      title: 'Order',
+      key: 'order',
+      render: (_: unknown, record: Order) => (
+        <div>
+          <Text strong style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-sm)' }}>
+            {record.id}
+          </Text>
+          <div>
+            <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+              {record.shippingAddress.fullName}
+            </Text>
+          </div>
+        </div>
       ),
+      responsive: ['xs', 'sm', 'md', 'lg', 'xl'] as const,
     },
     {
       title: 'Customer',
@@ -83,6 +93,7 @@ const AdminDashboardPage: React.FC = () => {
           <Text>{record.shippingAddress.fullName}</Text>
         </Space>
       ),
+      responsive: ['md', 'lg', 'xl'] as const,
     },
     {
       title: 'Items',
@@ -90,6 +101,7 @@ const AdminDashboardPage: React.FC = () => {
       render: (_: unknown, record: Order) => (
         <Text type="secondary">{record.items.length} item(s)</Text>
       ),
+      responsive: ['lg', 'xl'] as const,
     },
     {
       title: 'Total',
@@ -124,7 +136,7 @@ const AdminDashboardPage: React.FC = () => {
       key: 'actions',
       render: (_: unknown, record: Order) => (
         <Link to={`/admin/orders/${record.id}`}>
-          <Button type="link" size="small">View</Button>
+          <Button type="text" size="small" icon={<EyeOutlined />} aria-label="View order" />
         </Link>
       ),
     },
@@ -132,76 +144,72 @@ const AdminDashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+      <div className="loading-state">
         <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0 }}>Dashboard</Title>
-        <Text type="secondary">Welcome back! Here's an overview of your store.</Text>
-      </div>
-
+    <div className="admin-dashboard">
       {/* Key Metrics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
+      <Row gutter={[16, 16]} style={{ marginBottom: 'var(--spacing-xl)' }}>
+        <Col xs={12} md={6}>
+          <Card className="stat-card" bodyStyle={{ padding: 'var(--spacing-lg)' }}>
             <Statistic
               title="Total Revenue"
               value={totalRevenue}
-              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+              prefix={<DollarOutlined style={{ color: 'var(--color-success)' }} />}
               precision={2}
-              valueStyle={{ color: '#1a1a2e' }}
+              valueStyle={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-xl)' }}
             />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                <ArrowUpOutlined style={{ color: '#52c41a' }} /> {revenueChange}% from last month
+            <div className="stat-card__change">
+              <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                <ArrowUpOutlined style={{ color: 'var(--color-success)' }} /> {revenueChange}% vs last month
               </Text>
             </div>
           </Card>
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
+        <Col xs={12} md={6}>
+          <Card className="stat-card" bodyStyle={{ padding: 'var(--spacing-lg)' }}>
             <Statistic
               title="Total Orders"
               value={totalOrders}
-              prefix={<FileTextOutlined style={{ color: '#1890ff' }} />}
+              prefix={<FileTextOutlined style={{ color: 'var(--color-primary)' }} />}
+              valueStyle={{ fontSize: 'var(--font-size-xl)' }}
             />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                <ArrowUpOutlined style={{ color: '#52c41a' }} /> {ordersChange}% from last month
+            <div className="stat-card__change">
+              <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                <ArrowUpOutlined style={{ color: 'var(--color-success)' }} /> {ordersChange}% vs last month
               </Text>
             </div>
           </Card>
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
+        <Col xs={12} md={6}>
+          <Card className="stat-card" bodyStyle={{ padding: 'var(--spacing-lg)' }}>
             <Statistic
               title="Total Customers"
               value={totalUsers}
               prefix={<TeamOutlined style={{ color: '#722ed1' }} />}
+              valueStyle={{ fontSize: 'var(--font-size-xl)' }}
             />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                <ArrowUpOutlined style={{ color: '#52c41a' }} /> {usersChange}% from last month
+            <div className="stat-card__change">
+              <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                <ArrowUpOutlined style={{ color: 'var(--color-success)' }} /> {usersChange}% vs last month
               </Text>
             </div>
           </Card>
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
+        <Col xs={12} md={6}>
+          <Card className="stat-card" bodyStyle={{ padding: 'var(--spacing-lg)' }}>
             <Statistic
               title="Pending Requests"
               value={pendingRequests}
-              prefix={<ScissorOutlined style={{ color: pendingRequests > 0 ? '#faad14' : '#8c8c8c' }} />}
-              valueStyle={pendingRequests > 0 ? { color: '#faad14' } : undefined}
+              prefix={<ScissorOutlined style={{ color: pendingRequests > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)' }} />}
+              valueStyle={pendingRequests > 0 ? { color: 'var(--color-warning)', fontSize: 'var(--font-size-xl)' } : { fontSize: 'var(--font-size-xl)' }}
             />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+            <div className="stat-card__change">
+              <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
                 Stylist verifications
               </Text>
             </div>
@@ -212,7 +220,7 @@ const AdminDashboardPage: React.FC = () => {
       {/* Main Content */}
       <Row gutter={[24, 24]}>
         {/* Recent Orders */}
-        <Col xs={24} lg={16}>
+        <Col xs={24} xl={16}>
           <Card
             title={
               <Space>
@@ -225,6 +233,7 @@ const AdminDashboardPage: React.FC = () => {
                 <Button type="link">View All</Button>
               </Link>
             }
+            bodyStyle={{ padding: 0 }}
           >
             <Table
               dataSource={recentOrders}
@@ -232,14 +241,15 @@ const AdminDashboardPage: React.FC = () => {
               rowKey="id"
               pagination={false}
               size="small"
+              scroll={{ x: 400 }}
             />
           </Card>
         </Col>
 
         {/* Sidebar */}
-        <Col xs={24} lg={8}>
+        <Col xs={24} xl={8}>
           {/* Quick Actions */}
-          <Card title="Quick Actions" style={{ marginBottom: 16 }}>
+          <Card title="Quick Actions" style={{ marginBottom: 'var(--spacing-lg)' }}>
             <Space direction="vertical" style={{ width: '100%' }} size={12}>
               <Link to="/admin/products" style={{ display: 'block' }}>
                 <Button icon={<ShoppingOutlined />} block>
@@ -277,31 +287,31 @@ const AdminDashboardPage: React.FC = () => {
           <Card title="Inventory Status">
             <Space direction="vertical" style={{ width: '100%' }} size={16}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="inventory-row">
                   <Text>Total Products</Text>
                   <Text strong>{totalProducts}</Text>
                 </div>
-                <Progress percent={100} showInfo={false} strokeColor="#1890ff" />
+                <Progress percent={100} showInfo={false} strokeColor="var(--color-primary)" />
               </div>
               
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div className="inventory-row">
                   <Text>Low Stock Items</Text>
-                  <Text strong style={{ color: lowStockProducts > 0 ? '#faad14' : '#52c41a' }}>
+                  <Text strong style={{ color: lowStockProducts > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>
                     {lowStockProducts}
                   </Text>
                 </div>
                 <Progress
                   percent={Math.round((lowStockProducts / totalProducts) * 100)}
                   showInfo={false}
-                  strokeColor={lowStockProducts > 0 ? '#faad14' : '#52c41a'}
+                  strokeColor={lowStockProducts > 0 ? 'var(--color-warning)' : 'var(--color-success)'}
                 />
               </div>
 
               {lowStockProducts > 0 && (
                 <Link to="/admin/products?filter=low-stock">
                   <Button type="link" style={{ padding: 0 }}>
-                    View low stock items <ArrowDownOutlined style={{ transform: 'rotate(-90deg)' }} />
+                    View low stock items &rarr;
                   </Button>
                 </Link>
               )}

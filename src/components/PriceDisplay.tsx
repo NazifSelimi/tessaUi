@@ -28,8 +28,8 @@ export default function PriceDisplay({
 }: PriceDisplayProps) {
   const { currentRole, isProfessional, isAdmin, isDistributor } = useAuth();
   
-  const primaryFontSize = large ? 24 : 16;
-  const secondaryFontSize = large ? 16 : 12;
+  const primaryFontSize = large ? 'var(--font-size-2xl)' : 'var(--font-size-lg)';
+  const secondaryFontSize = large ? 'var(--font-size-lg)' : 'var(--font-size-xs)';
 
   // Calculate savings percentage
   const savingsPercent = Math.round(
@@ -39,90 +39,57 @@ export default function PriceDisplay({
   // Distributor and admin always see both prices
   if (showBothPrices || isDistributor || isAdmin) {
     return (
-      <Space direction="vertical" size={2}>
+      <div className="price-display">
         <Text style={{ fontSize: secondaryFontSize }} type="secondary">
           Retail: ${size.retailPrice.toFixed(2)}
         </Text>
         <Space size={8} align="baseline">
           <Text 
-            style={{ 
-              fontSize: primaryFontSize, 
-              fontWeight: 600, 
-              color: '#10b981',
-            }}
+            className="price-display__current price-display__current--stylist"
+            style={{ fontSize: primaryFontSize }}
           >
             ${size.stylistPrice.toFixed(2)}
           </Text>
           {showSavings && savingsPercent > 0 && (
-            <Text 
-              style={{ 
-                fontSize: 11, 
-                background: '#dcfce7', 
-                color: '#16a34a',
-                padding: '2px 6px',
-                borderRadius: 4,
-                fontWeight: 500,
-              }}
-            >
+            <span className="price-display__savings">
               Save {savingsPercent}%
-            </Text>
+            </span>
           )}
         </Space>
-        <Text type="secondary" style={{ fontSize: 11 }}>
+        <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
           Stylist Price
         </Text>
-      </Space>
+      </div>
     );
   }
 
   // Stylist sees stylist price with crossed out retail
   if (isProfessional) {
     return (
-      <Space size={8} align="baseline" wrap>
-        <Text 
-          style={{ 
-            fontSize: secondaryFontSize, 
-            textDecoration: 'line-through',
-            color: '#9ca3af',
-          }}
-        >
+      <div className="price-display price-display--inline">
+        <Text className="price-display__original" style={{ fontSize: secondaryFontSize }}>
           ${size.retailPrice.toFixed(2)}
         </Text>
         <Text 
-          style={{ 
-            fontSize: primaryFontSize, 
-            fontWeight: 600,
-            color: '#10b981',
-          }}
+          className="price-display__current price-display__current--stylist"
+          style={{ fontSize: primaryFontSize }}
         >
           ${size.stylistPrice.toFixed(2)}
         </Text>
         {showSavings && savingsPercent > 0 && (
-          <Text 
-            style={{ 
-              fontSize: 11, 
-              background: '#dcfce7', 
-              color: '#16a34a',
-              padding: '2px 6px',
-              borderRadius: 4,
-              fontWeight: 500,
-            }}
-          >
+          <span className="price-display__savings">
             -{savingsPercent}%
-          </Text>
+          </span>
         )}
-      </Space>
+      </div>
     );
   }
 
   // Guest/User sees retail price only
   return (
     <Text 
-      style={{ 
-        fontSize: primaryFontSize, 
-        fontWeight: 600,
-        color: '#1a1a1a',
-      }}
+      className="price-display__current"
+      style={{ fontSize: primaryFontSize }}
     >
       ${size.retailPrice.toFixed(2)}
     </Text>

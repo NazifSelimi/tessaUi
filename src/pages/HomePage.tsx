@@ -13,7 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 import { 
   Row, Col, Input, Select, Slider, Checkbox, Card, Typography, 
   Space, Button, Spin, Empty, Collapse, Drawer, Pagination, Divider,
-  Badge,
+  Badge, Tag,
 } from 'antd';
 import { SearchOutlined, FilterOutlined, CloseOutlined } from '@ant-design/icons';
 import ProductCard from '@/components/ProductCard';
@@ -129,6 +129,7 @@ export default function HomePage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         allowClear
+        aria-label="Search products"
       />
 
       {/* Categories */}
@@ -233,17 +234,17 @@ export default function HomePage() {
   return (
     <div>
       {/* Page Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ marginBottom: 8 }}>Shop All Products</Title>
+      <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+        <Title level={2} style={{ marginBottom: 'var(--spacing-sm)' }}>Shop All Products</Title>
         <Text type="secondary">
           Premium professional hair care products
         </Text>
       </div>
 
-      <Row gutter={24}>
+      <Row gutter={[24, 24]}>
         {/* Desktop Filters Sidebar */}
-        <Col xs={0} md={6}>
-          <Card size="small" style={{ position: 'sticky', top: 88 }}>
+        <Col xs={0} md={6} className="filter-sidebar--desktop">
+          <Card size="small" className="filter-sidebar">
             <FilterContent />
           </Card>
         </Col>
@@ -255,21 +256,24 @@ export default function HomePage() {
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: 'var(--spacing-lg)',
             flexWrap: 'wrap',
-            gap: 12,
+            gap: 'var(--spacing-md)',
           }}>
-            <Space wrap>
+            <Space wrap size="small">
               {/* Mobile Filter Button */}
               <Button 
                 icon={<FilterOutlined />}
                 onClick={() => setMobileFiltersOpen(true)}
-                className="mobile-filter-btn"
-                style={{ display: 'none' }}
+                className="mobile-filter-toggle"
               >
                 Filters
                 {activeFiltersCount > 0 && (
-                  <Badge count={activeFiltersCount} size="small" style={{ marginLeft: 8 }} />
+                  <Badge 
+                    count={activeFiltersCount} 
+                    size="small" 
+                    style={{ marginLeft: 8 }} 
+                  />
                 )}
               </Button>
               
@@ -277,22 +281,22 @@ export default function HomePage() {
               
               {/* Active filter tags */}
               {category && (
-                <Button 
-                  size="small" 
-                  onClick={() => handleCategoryChange('')}
-                  icon={<CloseOutlined />}
+                <Tag 
+                  closable
+                  onClose={() => handleCategoryChange('')}
+                  style={{ margin: 0 }}
                 >
                   {categories.find(c => c.slug === category)?.name}
-                </Button>
+                </Tag>
               )}
               {brand && (
-                <Button 
-                  size="small" 
-                  onClick={() => handleBrandChange('')}
-                  icon={<CloseOutlined />}
+                <Tag 
+                  closable
+                  onClose={() => handleBrandChange('')}
+                  style={{ margin: 0 }}
                 >
                   {brands.find(b => b.slug === brand)?.name}
-                </Button>
+                </Tag>
               )}
             </Space>
             
@@ -301,13 +305,13 @@ export default function HomePage() {
               onChange={setSortBy}
               options={sortOptions}
               style={{ width: 180 }}
-              suffixIcon={<FilterOutlined />}
+              aria-label="Sort products"
             />
           </div>
 
           {/* Products */}
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 80 }}>
+            <div className="loading-state" style={{ padding: 80 }}>
               <Spin size="large" />
             </div>
           ) : paginatedProducts.length === 0 ? (
@@ -331,7 +335,7 @@ export default function HomePage() {
 
               {/* Pagination */}
               {totalProducts > ITEMS_PER_PAGE && (
-                <div style={{ textAlign: 'center', marginTop: 32 }}>
+                <div style={{ textAlign: 'center', marginTop: 'var(--spacing-2xl)' }}>
                   <Pagination
                     current={currentPage}
                     total={totalProducts}
@@ -339,6 +343,7 @@ export default function HomePage() {
                     onChange={setCurrentPage}
                     showSizeChanger={false}
                     showTotal={(total) => `${total} products`}
+                    responsive
                   />
                 </div>
               )}
@@ -354,18 +359,10 @@ export default function HomePage() {
         open={mobileFiltersOpen}
         onClose={() => setMobileFiltersOpen(false)}
         width={300}
+        styles={{ body: { paddingTop: 'var(--spacing-md)' } }}
       >
         <FilterContent />
       </Drawer>
-
-      {/* Mobile styles */}
-      <style>{`
-        @media (max-width: 768px) {
-          .mobile-filter-btn {
-            display: inline-flex !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

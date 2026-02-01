@@ -1,6 +1,8 @@
 /**
  * Cart Page Component
- * Displays cart items with quantity controls and checkout summary
+ * 
+ * Displays cart items with quantity controls and checkout summary.
+ * Mobile-responsive with card-based layout on small screens.
  */
 
 import React from 'react';
@@ -18,7 +20,6 @@ import {
   Image,
   Popconfirm,
   message,
-  Table,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -27,16 +28,14 @@ import {
   SafetyCertificateOutlined,
   TruckOutlined,
 } from '@ant-design/icons';
-import { useCart } from '../contexts/CartContext';
-import { useAuth } from '../contexts/AuthContext';
-import type { CartItem } from '../types';
+import { useCart } from '@/contexts';
+import type { CartItem } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { items, updateQuantity, removeItem, getCartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { items, updateQuantity, removeItem, getCartTotal, clearCart, getItemPrice, getItemTotal } = useCart();
 
   const handleQuantityChange = (productId: string, sizeId: string, quantity: number | null) => {
     if (quantity && quantity > 0) {
@@ -55,108 +54,16 @@ const CartPage: React.FC = () => {
   };
 
   const handleCheckout = () => {
-    if (!user) {
-      message.info('Please log in to proceed with checkout');
-      navigate('/login', { state: { from: '/checkout' } });
-      return;
-    }
     navigate('/checkout');
   };
 
   const totals = getCartTotal();
 
-  const columns = [
-    {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-      render: (_: unknown, record: CartItem) => (
-        <Space>
-          <Image
-            src={record.product.images[0] || '/placeholder.svg'}
-            alt={record.product.name}
-            width={80}
-            height={80}
-            style={{ objectFit: 'cover', borderRadius: 8 }}
-            preview={false}
-            fallback="/placeholder.svg"
-          />
-          <div>
-            <Link to={`/product/${record.product.id}`}>
-              <Text strong style={{ color: '#1a1a2e' }}>{record.product.name}</Text>
-            </Link>
-            <br />
-            <Text type="secondary">{record.product.brand}</Text>
-            {record.size && (
-              <>
-                <br />
-                <Text type="secondary" style={{ fontSize: 12 }}>{record.size.size}</Text>
-              </>
-            )}
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: 'Price',
-      key: 'price',
-      width: 120,
-      render: (_: unknown, record: CartItem) => {
-        const price = record.size?.retailPrice || record.product.retailPrice;
-        return <Text>${price.toFixed(2)}</Text>;
-      },
-    },
-    {
-      title: 'Quantity',
-      key: 'quantity',
-      width: 130,
-      render: (_: unknown, record: CartItem) => (
-        <InputNumber
-          min={1}
-          max={record.size?.stock || record.product.stock || 99}
-          value={record.quantity}
-          onChange={(val) => handleQuantityChange(record.product.id, record.size?.id || '', val)}
-          style={{ width: 80 }}
-        />
-      ),
-    },
-    {
-      title: 'Total',
-      key: 'total',
-      width: 120,
-      render: (_: unknown, record: CartItem) => {
-        const price = record.size?.retailPrice || record.product.retailPrice;
-        return <Text strong>${(price * record.quantity).toFixed(2)}</Text>;
-      },
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 60,
-      render: (_: unknown, record: CartItem) => (
-        <Popconfirm
-          title="Remove item"
-          description="Are you sure you want to remove this item?"
-          onConfirm={() => handleRemoveItem(record.product.id, record.size?.id || '')}
-          okText="Yes"
-          cancelText="No"
-        >
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            aria-label="Remove item"
-          />
-        </Popconfirm>
-      ),
-    },
-  ];
-
   if (items.length === 0) {
     return (
-      <div style={{ padding: '48px 24px', maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+      <div className="empty-state" style={{ padding: 'var(--spacing-3xl) var(--spacing-xl)' }}>
         <Empty
-          image={<ShoppingOutlined style={{ fontSize: 80, color: '#d9d9d9' }} />}
+          image={<ShoppingOutlined style={{ fontSize: 80, color: 'var(--color-text-muted)' }} />}
           description={
             <Space direction="vertical" size={8}>
               <Title level={4} style={{ margin: 0 }}>Your cart is empty</Title>
@@ -167,7 +74,7 @@ const CartPage: React.FC = () => {
             </Space>
           }
         >
-          <Link to="/products">
+          <Link to="/">
             <Button type="primary" size="large" icon={<ShoppingOutlined />}>
               Start Shopping
             </Button>
@@ -178,29 +85,88 @@ const CartPage: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="cart-page">
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link to="/products" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+      <div className="cart-page__header">
+        <Link to="/" className="back-link">
           <ArrowLeftOutlined />
           <span>Continue Shopping</span>
         </Link>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="cart-page__title-row">
           <Title level={2} style={{ margin: 0 }}>Shopping Cart</Title>
           <Text type="secondary">{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
         </div>
       </div>
 
       <Row gutter={[24, 24]}>
-        {/* Cart Items Table */}
+        {/* Cart Items - Mobile Card Layout */}
         <Col xs={24} lg={16}>
-          <Card>
-            <Table
-              dataSource={items}
-              columns={columns}
-              rowKey={(record) => `${record.product.id}-${record.size?.id || 'default'}`}
-              pagination={false}
-            />
+          <Card className="cart-items-card">
+            <div className="cart-items">
+              {items.map((item, index) => (
+                <React.Fragment key={`${item.productId}-${item.sizeId}`}>
+                  <div className="cart-item">
+                    <Image
+                      src={item.product.images[0] || '/placeholder.svg'}
+                      alt={item.product.name}
+                      width={80}
+                      height={80}
+                      style={{ 
+                        objectFit: 'cover', 
+                        borderRadius: 'var(--radius-md)',
+                        flexShrink: 0,
+                      }}
+                      preview={false}
+                      fallback="/placeholder.svg"
+                    />
+                    <div className="cart-item__details">
+                      <div className="cart-item__info">
+                        <Link to={`/product/${item.product.slug}`}>
+                          <Text strong className="cart-item__name">{item.product.name}</Text>
+                        </Link>
+                        <Text type="secondary" className="cart-item__meta">
+                          {item.product.brand} • {item.size.size}
+                        </Text>
+                        <Text className="cart-item__unit-price">
+                          ${getItemPrice(item).toFixed(2)} each
+                        </Text>
+                      </div>
+                      
+                      <div className="cart-item__actions">
+                        <InputNumber
+                          min={1}
+                          max={item.size.stock}
+                          value={item.quantity}
+                          onChange={(val) => handleQuantityChange(item.productId, item.sizeId, val)}
+                          size="small"
+                          style={{ width: 70 }}
+                          aria-label={`Quantity for ${item.product.name}`}
+                        />
+                        <Text strong className="cart-item__total">
+                          ${getItemTotal(item).toFixed(2)}
+                        </Text>
+                        <Popconfirm
+                          title="Remove item"
+                          description="Are you sure you want to remove this item?"
+                          onConfirm={() => handleRemoveItem(item.productId, item.sizeId)}
+                          okText="Yes"
+                          cancelText="No"
+                        >
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            aria-label="Remove item"
+                            size="small"
+                          />
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  </div>
+                  {index < items.length - 1 && <Divider style={{ margin: 'var(--spacing-lg) 0' }} />}
+                </React.Fragment>
+              ))}
+            </div>
             
             {/* Clear Cart */}
             <Divider />
@@ -222,42 +188,39 @@ const CartPage: React.FC = () => {
 
         {/* Order Summary */}
         <Col xs={24} lg={8}>
-          <Card title="Order Summary" style={{ position: 'sticky', top: 24 }}>
+          <Card className="order-summary" style={{ position: 'sticky', top: 24 }}>
+            <Title level={5} style={{ marginBottom: 'var(--spacing-lg)' }}>Order Summary</Title>
+            
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="price-row">
                 <Text type="secondary">Subtotal ({totals.itemCount} items)</Text>
                 <Text>${totals.subtotal.toFixed(2)}</Text>
               </div>
 
               {totals.savings > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="price-row">
                   <Text type="secondary">Savings</Text>
-                  <Text style={{ color: '#52c41a' }}>-${totals.savings.toFixed(2)}</Text>
+                  <Text style={{ color: 'var(--color-success)' }}>-${totals.savings.toFixed(2)}</Text>
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="price-row">
                 <Text type="secondary">Shipping</Text>
                 <Text>{totals.subtotal >= 50 ? 'FREE' : '$5.99'}</Text>
               </div>
 
-              <Divider style={{ margin: '8px 0' }} />
+              <Divider style={{ margin: 'var(--spacing-sm) 0' }} />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text strong style={{ fontSize: 16 }}>Estimated Total</Text>
-                <Text strong style={{ fontSize: 18, color: '#1a1a2e' }}>
+              <div className="price-row">
+                <Text strong style={{ fontSize: 'var(--font-size-lg)' }}>Estimated Total</Text>
+                <Text strong style={{ fontSize: 'var(--font-size-xl)', color: 'var(--color-text-primary)' }}>
                   ${(totals.subtotal + (totals.subtotal >= 50 ? 0 : 5.99)).toFixed(2)}
                 </Text>
               </div>
 
               {totals.subtotal < 50 && (
-                <div style={{ 
-                  background: '#fff7e6', 
-                  padding: 12, 
-                  borderRadius: 8,
-                  border: '1px solid #ffd591'
-                }}>
-                  <Text style={{ color: '#d48806', fontSize: 13 }}>
+                <div className="shipping-notice">
+                  <Text style={{ color: '#d48806', fontSize: 'var(--font-size-sm)' }}>
                     Add ${(50 - totals.subtotal).toFixed(2)} more for FREE shipping!
                   </Text>
                 </div>
@@ -268,21 +231,21 @@ const CartPage: React.FC = () => {
                 size="large"
                 block
                 onClick={handleCheckout}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 'var(--spacing-sm)', height: 48 }}
               >
                 Proceed to Checkout
               </Button>
 
               {/* Trust Badges */}
-              <Divider style={{ margin: '16px 0 8px' }} />
+              <Divider style={{ margin: 'var(--spacing-lg) 0 var(--spacing-sm)' }} />
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SafetyCertificateOutlined style={{ color: '#52c41a' }} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>Secure SSL Checkout</Text>
+                <div className="trust-badge">
+                  <SafetyCertificateOutlined style={{ color: 'var(--color-success)' }} />
+                  <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>Secure SSL Checkout</Text>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <TruckOutlined style={{ color: '#1890ff' }} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>Free shipping on orders $50+</Text>
+                <div className="trust-badge">
+                  <TruckOutlined style={{ color: 'var(--color-primary)' }} />
+                  <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>Free shipping on orders $50+</Text>
                 </div>
               </Space>
             </Space>

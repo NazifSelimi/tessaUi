@@ -47,10 +47,7 @@ export default function CartDrawer() {
           <span>Shopping Cart</span>
           <Badge 
             count={itemCount} 
-            style={{ 
-              backgroundColor: '#1a1a1a',
-              marginLeft: 8,
-            }} 
+            style={{ backgroundColor: 'var(--color-primary)' }} 
           />
         </Space>
       }
@@ -61,20 +58,20 @@ export default function CartDrawer() {
       closeIcon={<CloseOutlined />}
       styles={{
         body: { padding: 0, display: 'flex', flexDirection: 'column' },
-        footer: { borderTop: '1px solid #f0f0f0' },
+        footer: { borderTop: '1px solid var(--color-border-light)' },
       }}
       footer={
         items.length > 0 ? (
-          <div style={{ padding: '16px 0' }}>
+          <div style={{ padding: 'var(--spacing-lg) 0' }}>
             {/* Subtotal */}
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              marginBottom: 16,
-              padding: '0 24px',
+              marginBottom: 'var(--spacing-lg)',
+              padding: '0 var(--spacing-xl)',
             }}>
-              <Text style={{ fontSize: 16 }}>Subtotal</Text>
-              <Text strong style={{ fontSize: 20 }}>
+              <Text style={{ fontSize: 'var(--font-size-lg)' }}>Subtotal</Text>
+              <Text strong style={{ fontSize: 'var(--font-size-xl)' }}>
                 ${subtotal.toFixed(2)}
               </Text>
             </div>
@@ -83,17 +80,17 @@ export default function CartDrawer() {
               type="secondary" 
               style={{ 
                 display: 'block', 
-                fontSize: 12, 
+                fontSize: 'var(--font-size-xs)', 
                 textAlign: 'center',
-                marginBottom: 16,
-                padding: '0 24px',
+                marginBottom: 'var(--spacing-lg)',
+                padding: '0 var(--spacing-xl)',
               }}
             >
               Shipping calculated at checkout
             </Text>
             
             {/* Action Buttons */}
-            <Space direction="vertical" style={{ width: '100%', padding: '0 24px' }} size="small">
+            <Space direction="vertical" style={{ width: '100%', padding: '0 var(--spacing-xl)' }} size="small">
               <Button 
                 type="primary" 
                 block 
@@ -103,10 +100,7 @@ export default function CartDrawer() {
               >
                 Checkout
               </Button>
-              <Button 
-                block 
-                onClick={handleViewCart}
-              >
+              <Button block onClick={handleViewCart}>
                 View Cart
               </Button>
             </Space>
@@ -115,13 +109,7 @@ export default function CartDrawer() {
       }
     >
       {items.length === 0 ? (
-        <div style={{ 
-          flex: 1, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          padding: 48,
-        }}>
+        <div className="cart-drawer__empty">
           <Empty 
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
@@ -135,45 +123,36 @@ export default function CartDrawer() {
           />
         </div>
       ) : (
-        <div style={{ flex: 1, overflow: 'auto', padding: '0 24px' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '0 var(--spacing-xl)' }}>
           {items.map((item, index) => {
             const price = getItemPrice(item);
             const total = getItemTotal(item);
             
             return (
               <div key={`${item.productId}-${item.sizeId}`}>
-                <div style={{ 
-                  padding: '16px 0',
-                  display: 'flex', 
-                  gap: 16,
-                }}>
+                <div className="cart-drawer__item">
                   {/* Product Image */}
                   <img
                     src={item.product.images[0] || '/placeholder.svg'}
                     alt={item.product.name}
-                    style={{ 
-                      width: 80, 
-                      height: 80, 
-                      objectFit: 'cover', 
-                      borderRadius: 8,
-                      flexShrink: 0,
-                    }}
+                    className="cart-drawer__item-image"
+                    loading="lazy"
                   />
                   
                   {/* Product Details */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="cart-drawer__item-details">
                     <Text 
                       strong 
                       style={{ 
                         display: 'block',
-                        marginBottom: 4,
+                        marginBottom: 'var(--spacing-xs)',
                         lineHeight: 1.3,
                       }}
                       ellipsis
                     >
                       {item.product.name}
                     </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
                       {item.product.brand} &bull; {item.size.size}
                     </Text>
                     
@@ -182,7 +161,7 @@ export default function CartDrawer() {
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center', 
-                      marginTop: 12,
+                      marginTop: 'var(--spacing-md)',
                     }}>
                       <InputNumber
                         min={1}
@@ -191,6 +170,7 @@ export default function CartDrawer() {
                         onChange={(val) => updateQuantity(item.productId, item.sizeId, val || 1)}
                         size="small"
                         style={{ width: 70 }}
+                        aria-label={`Quantity for ${item.product.name}`}
                       />
                       <Space size="middle">
                         <Text strong>${total.toFixed(2)}</Text>
@@ -200,13 +180,14 @@ export default function CartDrawer() {
                           size="small"
                           icon={<DeleteOutlined />}
                           onClick={() => removeItem(item.productId, item.sizeId)}
+                          aria-label={`Remove ${item.product.name} from cart`}
                           style={{ padding: 4 }}
                         />
                       </Space>
                     </div>
                     
                     {/* Unit Price */}
-                    <Text type="secondary" style={{ fontSize: 11, marginTop: 4, display: 'block' }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
                       ${price.toFixed(2)} each
                     </Text>
                   </div>
