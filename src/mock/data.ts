@@ -1,0 +1,328 @@
+import type { Product, User, Order, StylistRequest, StylistCode, Coupon, Category, Brand } from '@/types';
+
+export const categories: Category[] = [
+  { id: '1', name: 'Shampoo', slug: 'shampoo' },
+  { id: '2', name: 'Conditioner', slug: 'conditioner' },
+  { id: '3', name: 'Hair Color', slug: 'hair-color' },
+  { id: '4', name: 'Hair Masks', slug: 'hair-masks' },
+  { id: '5', name: 'Styling', slug: 'styling' },
+  { id: '6', name: 'Treatments', slug: 'treatments' },
+];
+
+export const brands: Brand[] = [
+  { id: '1', name: 'Fanola', slug: 'fanola' },
+  { id: '2', name: 'Oro Therapy', slug: 'oro-therapy' },
+  { id: '3', name: 'Kerastase', slug: 'kerastase' },
+  { id: '4', name: 'Olaplex', slug: 'olaplex' },
+];
+
+export const products: Product[] = [
+  {
+    id: '1',
+    slug: 'fanola-no-yellow-shampoo',
+    name: 'No Yellow Shampoo',
+    brand: 'Fanola',
+    category: 'shampoo',
+    description: 'Ideal for grey, super lightened or decolored hair. The violet pigment neutralizes unwanted yellow tones, leaving hair brighter and shinier.',
+    images: [
+      'https://images.unsplash.com/photo-1631729371254-42c2892f0e6e?w=500&h=500&fit=crop',
+      'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '1-350', size: '350ml', retailPrice: 18.99, stylistPrice: 14.99, stock: 50 },
+      { id: '1-1000', size: '1000ml', retailPrice: 39.99, stylistPrice: 29.99, stock: 30 },
+    ],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '2',
+    slug: 'oro-therapy-24k-gold-mask',
+    name: '24K Gold Hair Mask',
+    brand: 'Oro Therapy',
+    category: 'hair-masks',
+    description: 'Luxurious restructuring mask with micro-active gold and Argan oil. Deeply nourishes and illuminates hair with brilliant shine.',
+    images: [
+      'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '2-300', size: '300ml', retailPrice: 34.99, stylistPrice: 26.99, stock: 25 },
+      { id: '2-1000', size: '1000ml', retailPrice: 74.99, stylistPrice: 54.99, stock: 15 },
+    ],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '3',
+    slug: 'fanola-color-keratene',
+    name: 'Keratene Color Care Shampoo',
+    brand: 'Fanola',
+    category: 'shampoo',
+    description: 'Gentle cleansing shampoo specifically formulated for color-treated hair. Preserves color vibrancy and adds brilliant shine.',
+    images: [
+      'https://images.unsplash.com/photo-1619451334792-150fd785ee74?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '3-350', size: '350ml', retailPrice: 16.99, stylistPrice: 12.99, stock: 40 },
+      { id: '3-1000', size: '1000ml', retailPrice: 34.99, stylistPrice: 24.99, stock: 20 },
+    ],
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: '4',
+    slug: 'olaplex-no-3',
+    name: 'No.3 Hair Perfector',
+    brand: 'Olaplex',
+    category: 'treatments',
+    description: 'At-home treatment that reduces breakage and visibly strengthens hair, improving its look and feel.',
+    images: [
+      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '4-100', size: '100ml', retailPrice: 28.00, stylistPrice: 21.00, stock: 60 },
+      { id: '4-250', size: '250ml', retailPrice: 52.00, stylistPrice: 39.00, stock: 25 },
+    ],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '5',
+    slug: 'kerastase-elixir-ultime',
+    name: 'Elixir Ultime Oil',
+    brand: 'Kerastase',
+    category: 'treatments',
+    description: 'Versatile beautifying oil that adds shine, nourishment and protection to all hair types.',
+    images: [
+      'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '5-100', size: '100ml', retailPrice: 49.99, stylistPrice: 37.99, stock: 35 },
+    ],
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: '6',
+    slug: 'fanola-no-orange-shampoo',
+    name: 'No Orange Shampoo',
+    brand: 'Fanola',
+    category: 'shampoo',
+    description: 'Blue pigmented shampoo that neutralizes orange and copper tones in dark blonde to light brown hair.',
+    images: [
+      'https://images.unsplash.com/photo-1594125674956-61a9b49c8ecc?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '6-350', size: '350ml', retailPrice: 18.99, stylistPrice: 14.99, stock: 45 },
+      { id: '6-1000', size: '1000ml', retailPrice: 39.99, stylistPrice: 29.99, stock: 22 },
+    ],
+    inStock: true,
+    featured: false,
+  },
+  {
+    id: '7',
+    slug: 'oro-therapy-illuminating-serum',
+    name: 'Illuminating Serum',
+    brand: 'Oro Therapy',
+    category: 'styling',
+    description: 'Lightweight serum enriched with gold particles that adds incredible shine without weighing hair down.',
+    images: [
+      'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '7-100', size: '100ml', retailPrice: 29.99, stylistPrice: 22.99, stock: 30 },
+    ],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '8',
+    slug: 'kerastase-resistance-mask',
+    name: 'Resistance Masque Force',
+    brand: 'Kerastase',
+    category: 'hair-masks',
+    description: 'Strengthening mask for weakened hair that reinforces and adds resilience.',
+    images: [
+      'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=500&h=500&fit=crop',
+    ],
+    sizes: [
+      { id: '8-200', size: '200ml', retailPrice: 52.00, stylistPrice: 39.00, stock: 0 },
+      { id: '8-500', size: '500ml', retailPrice: 89.00, stylistPrice: 67.00, stock: 10 },
+    ],
+    inStock: true,
+    featured: false,
+  },
+];
+
+export const users: User[] = [
+  { id: '1', email: 'admin@tessa.com', name: 'Admin User', phone: '+1234567890', role: 'admin', createdAt: '2024-01-01' },
+  { id: '2', email: 'distributor@tessa.com', name: 'Main Distributor', phone: '+1234567891', role: 'distributor', createdAt: '2024-01-15' },
+  { id: '3', email: 'stylist@salon.com', name: 'Jane Stylist', phone: '+1234567892', role: 'stylist', createdAt: '2024-02-01' },
+  { id: '4', email: 'user@email.com', name: 'John Customer', phone: '+1234567893', role: 'user', createdAt: '2024-02-15' },
+];
+
+export const orders: Order[] = [
+  {
+    id: 'ORD-001',
+    userId: '4',
+    items: [
+      { productId: '1', sizeId: '1-350', productName: 'No Yellow Shampoo', sizeName: '350ml', quantity: 2, unitPrice: 18.99, total: 37.98 },
+      { productId: '2', sizeId: '2-300', productName: '24K Gold Hair Mask', sizeName: '300ml', quantity: 1, unitPrice: 34.99, total: 34.99 },
+    ],
+    subtotal: 72.97,
+    discount: 0,
+    shipping: 5.99,
+    total: 78.96,
+    status: 'delivered',
+    paymentMethod: 'cod',
+    paymentStatus: 'paid',
+    shippingAddress: {
+      fullName: 'John Customer',
+      phone: '+1234567893',
+      address: '123 Main St',
+      city: 'New York',
+      state: 'NY',
+      zipCode: '10001',
+    },
+    createdAt: '2024-02-20T10:00:00Z',
+    updatedAt: '2024-02-25T14:00:00Z',
+  },
+  {
+    id: 'ORD-002',
+    userId: '3',
+    items: [
+      { productId: '4', sizeId: '4-250', productName: 'No.3 Hair Perfector', sizeName: '250ml', quantity: 3, unitPrice: 39.00, total: 117.00 },
+    ],
+    subtotal: 117.00,
+    discount: 11.70,
+    shipping: 0,
+    total: 105.30,
+    status: 'shipped',
+    paymentMethod: 'cod',
+    paymentStatus: 'pending',
+    shippingAddress: {
+      fullName: 'Jane Stylist',
+      phone: '+1234567892',
+      address: '456 Salon Ave',
+      city: 'Los Angeles',
+      state: 'CA',
+      zipCode: '90001',
+    },
+    couponCode: 'STYLIST10',
+    createdAt: '2024-02-22T09:00:00Z',
+    updatedAt: '2024-02-23T11:00:00Z',
+  },
+  {
+    id: 'ORD-003',
+    userId: '4',
+    items: [
+      { productId: '5', sizeId: '5-100', productName: 'Elixir Ultime Oil', sizeName: '100ml', quantity: 1, unitPrice: 49.99, total: 49.99 },
+    ],
+    subtotal: 49.99,
+    discount: 0,
+    shipping: 5.99,
+    total: 55.98,
+    status: 'pending',
+    paymentMethod: 'cod',
+    paymentStatus: 'pending',
+    shippingAddress: {
+      fullName: 'John Customer',
+      phone: '+1234567893',
+      address: '123 Main St',
+      city: 'New York',
+      state: 'NY',
+      zipCode: '10001',
+    },
+    customMessage: 'Please leave at door if not home',
+    createdAt: '2024-02-25T15:00:00Z',
+    updatedAt: '2024-02-25T15:00:00Z',
+  },
+];
+
+export const stylistRequests: StylistRequest[] = [
+  {
+    id: 'SR-001',
+    userId: '5',
+    userName: 'Sarah Williams',
+    userEmail: 'sarah@beautysalon.com',
+    salonName: 'Beauty Haven Salon',
+    salonAddress: '789 Style Street, Miami, FL',
+    experience: '5 years',
+    referralCode: 'DIST2024',
+    status: 'pending',
+    createdAt: '2024-02-24T10:00:00Z',
+  },
+  {
+    id: 'SR-002',
+    userId: '6',
+    userName: 'Mike Johnson',
+    userEmail: 'mike@hairstudio.com',
+    salonName: 'Hair Studio Pro',
+    salonAddress: '321 Beauty Blvd, Chicago, IL',
+    experience: '8 years',
+    status: 'approved',
+    createdAt: '2024-02-20T09:00:00Z',
+    reviewedAt: '2024-02-21T14:00:00Z',
+    reviewedBy: 'admin@tessa.com',
+  },
+  {
+    id: 'SR-003',
+    userId: '7',
+    userName: 'Emily Davis',
+    userEmail: 'emily@cutsalon.com',
+    salonName: 'Cut & Style',
+    experience: '2 years',
+    status: 'rejected',
+    createdAt: '2024-02-18T11:00:00Z',
+    reviewedAt: '2024-02-19T10:00:00Z',
+    reviewedBy: 'admin@tessa.com',
+  },
+];
+
+export const stylistCodes: StylistCode[] = [
+  { id: 'SC-001', code: 'DIST2024', distributorId: '2', createdAt: '2024-01-20T10:00:00Z', isActive: true },
+  { id: 'SC-002', code: 'STYLE100', distributorId: '2', usedBy: '3', usedAt: '2024-02-01T09:00:00Z', createdAt: '2024-01-21T10:00:00Z', isActive: false },
+  { id: 'SC-003', code: 'NEWPRO25', distributorId: '2', createdAt: '2024-02-15T10:00:00Z', isActive: true },
+];
+
+export const coupons: Coupon[] = [
+  {
+    id: 'C-001',
+    code: 'WELCOME10',
+    type: 'percentage',
+    value: 10,
+    minPurchase: 50,
+    usageLimit: 100,
+    usedCount: 45,
+    audience: ['user', 'stylist'],
+    validFrom: '2024-01-01',
+    validUntil: '2024-12-31',
+    status: 'active',
+  },
+  {
+    id: 'C-002',
+    code: 'STYLIST20',
+    type: 'percentage',
+    value: 20,
+    minPurchase: 100,
+    usageLimit: 50,
+    usedCount: 12,
+    audience: ['stylist'],
+    validFrom: '2024-02-01',
+    validUntil: '2024-06-30',
+    status: 'active',
+  },
+  {
+    id: 'C-003',
+    code: 'FLAT15OFF',
+    type: 'fixed',
+    value: 15,
+    minPurchase: 75,
+    usageLimit: 200,
+    usedCount: 200,
+    audience: ['user', 'stylist', 'distributor'],
+    validFrom: '2024-01-15',
+    validUntil: '2024-03-15',
+    status: 'expired',
+  },
+];
