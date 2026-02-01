@@ -1,15 +1,17 @@
 /**
  * Tessa Shop - Main Entry Point
  * 
- * React 19 + Vite + Ant Design
+ * React 19 + Vite + Redux Toolkit + Ant Design
  * A modern ecommerce platform for professional hair care products
  */
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider, App as AntApp } from 'antd';
-import { AuthProvider, CartProvider } from '@/contexts';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { ConfigProvider, App as AntApp, Spin } from 'antd';
+import { store, persistor } from '@/store';
 import App from './App';
 import './index.css';
 
@@ -109,19 +111,34 @@ const theme = {
   },
 };
 
+/**
+ * Loading fallback for PersistGate
+ */
+const LoadingFallback = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100vh',
+    background: '#fafafa',
+  }}>
+    <Spin size="large" />
+  </div>
+);
+
 // Render the application
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <ConfigProvider theme={theme}>
-        <AntApp>
-          <AuthProvider>
-            <CartProvider>
+    <Provider store={store}>
+      <PersistGate loading={<LoadingFallback />} persistor={persistor}>
+        <BrowserRouter>
+          <ConfigProvider theme={theme}>
+            <AntApp>
               <App />
-            </CartProvider>
-          </AuthProvider>
-        </AntApp>
-      </ConfigProvider>
-    </BrowserRouter>
+            </AntApp>
+          </ConfigProvider>
+        </BrowserRouter>
+      </PersistGate>
+    </Provider>
   </React.StrictMode>
 );
